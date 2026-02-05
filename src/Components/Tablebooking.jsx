@@ -1,81 +1,89 @@
 import React, { useState } from 'react';
 import {
-  Row,
-  Col,
   Card,
   Typography,
   Tag,
-  Space,
   message,
-  Badge,
+  
 } from 'antd';
-import {
-  TableOutlined,
-} from '@ant-design/icons';
 
 const { Text } = Typography;
-
-// Initial table data
-const initialTables = [
-  { id: 1, number: 1, capacity: 2, status: 'available', bookedBy: null },
-  { id: 2, number: 2, capacity: 4, status: 'available', bookedBy: null },
-  { id: 3, number: 3, capacity: 4, status: 'available', bookedBy: null },
-  { id: 4, number: 4, capacity: 6, status: 'available', bookedBy: null },
-  { id: 5, number: 5, capacity: 2, status: 'available', bookedBy: null },
-  { id: 6, number: 6, capacity: 8, status: 'available', bookedBy: null },
-  { id: 7, number: 7, capacity: 4, status: 'available', bookedBy: null },
-  { id: 8, number: 8, capacity: 2, status: 'available', bookedBy: null },
-  { id: 9, number: 9, capacity: 4, status: 'available', bookedBy: null },
-  { id: 10, number: 10, capacity: 6, status: 'available', bookedBy: null },
-  { id: 11, number: 11, capacity: 2, status: 'available', bookedBy: null },
-  { id: 12, number: 12, capacity: 4, status: 'available', bookedBy: null },
-  { id: 13, number: 13, capacity: 2, status: 'available', bookedBy: null },
-  { id: 14, number: 14, capacity: 4, status: 'available', bookedBy: null },
-  { id: 15, number: 15, capacity: 6, status: 'available', bookedBy: null },
-  { id: 16, number: 16, capacity: 8, status: 'available', bookedBy: null },
-];
-
-const TableBooking = ({ onTableSelect, onBack, bookedTables = new Set() }) => {
+ 
+const TableBooking = ({ initialTables, onTableSelect, onBack, bookedTables = new Set(), isbooked }) => {
   // Generate tables with proper booking status from parent
   const generateTables = () => {
     return initialTables.map(table => ({
       ...table,
-      status: bookedTables.has(table.number) ? 'booked' : 'available',
-      bookedBy: bookedTables.has(table.number) ? 'Customer' : null,
+      status: bookedTables.has(table.name) ? 'booked' : 'available',
+      bookedBy: bookedTables.has(table.name) ? 'Customer' : null,
     }));
   };
 
   const [tables, setTables] = useState(generateTables());
 
+  const getTableBackgroundColor = (table, isBooked) => {
+    if (isBooked) {
+      // showing booked tables - use table's own color if booked, grey if not
+      return table.status === 'booked'
+        ? `${table.color || '#ff4d4f'}30` // 30 = 18% opacity
+        : '#f0f0f0'; // light grey
+    }
+
+    // showing available tables - use table's own color if available, grey if not
+    return table.status === 'available'
+      ? `${table.color || '#52c41a'}30` // 30 = 18% opacity
+      : '#f0f0f0'; // light grey
+  };
+
+  const getTableBorderColor = (table, isBooked) => {
+    if (isBooked) {
+      return table.status === 'booked'
+        ? table.color || '#ff4d4f'
+        : '#d9d9d9';
+    }
+
+    return table.status === 'available'
+      ? table.color || '#52c41a'
+      : '#d9d9d9';
+  };
+
   // Update tables when bookedTables changes
   React.useEffect(() => {
     setTables(generateTables());
+    message.info(isbooked ? 'Showing Booked Tables' : 'Showing Available Tables');
+    console.log("bookedTables changed:", isbooked);
   }, [bookedTables]);
 
   // Handle table click
-  const handleTableClick = (table) => {
-    if (table.status === 'available') {
-      console.log('Table selected:', table);
-      
-      if (onTableSelect) {
-        onTableSelect(table);
+  const handleTableClick = (table, isbooked) => {
+    if (isbooked) {
+      if (table.status === 'booked') {
+        console.log('Table selected:', table);
+        
+        if (onTableSelect) {
+          onTableSelect(table);
+        }
+      } else {
+        message.warning({
+          content: `Table ${table.name} is Empty!`,
+          duration: 2,
+        });
       }
     } else {
-      message.warning({
-        content: `Table ${table.number} is already booked!`,
-        duration: 2,
-      });
+      if (table.status === 'available') {
+        console.log('Table selected:', table);
+        
+        if (onTableSelect) {
+          onTableSelect(table);
+        }
+      } else {
+        message.warning({
+          content: `Table ${table.name} is already booked!`,
+          duration: 2,
+        });
+      }
     }
   };
-
-  // Get color based on table status
-  const getTableColor = (status) => {
-    return status === 'booked' ? '#ff4d4f' : '#52c41a';
-  };
-
-  // Get available and booked counts
-  const availableTables = tables.filter((t) => t.status === 'available').length;
-  const bookedTablesCount = tables.filter((t) => t.status === 'booked').length;
 
   return (
     <div 
@@ -86,93 +94,58 @@ const TableBooking = ({ onTableSelect, onBack, bookedTables = new Set() }) => {
         background: '#f0f2f5',
       }}
     >
-      {/* Table Status Header - Fixed */}
-      <div style={{ 
-        padding: '16px 16px 12px 16px',
-        background: '#f0f2f5',
-        borderBottom: '1px solid #d9d9d9',
-      }}>
-        <div style={{ 
-          display: 'flex',
-          justifyContent: 'center',
-          gap: 24
-        }}>
-          <Badge
-            count={availableTables}
-            style={{ backgroundColor: '#52c41a' }}
-            showZero
-          >
-            <Tag color="success" style={{ fontSize: 14, padding: '6px 16px', margin: 0 }}>
-              Available
-            </Tag>
-          </Badge>
-          <Badge
-            count={bookedTablesCount}
-            style={{ backgroundColor: '#ff4d4f' }}
-            showZero
-          >
-            <Tag color="error" style={{ fontSize: 14, padding: '6px 16px', margin: 0 }}>
-              Booked
-            </Tag>
-          </Badge>
-        </div>
-      </div>
-
-      {/* Tables Grid - Scrollable */}
+      {/* Tables Grid - 10 per row */}
       <div
         style={{
           flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          padding: 16,
+          padding: 20,
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(5, 1fr)',
-            gap: 12,
+            gridTemplateColumns: 'repeat(10, 85px)',
+            gridTemplateRows: 'repeat(2, 70px)',
+            gap: 8,
           }}
         >
-          {tables.map((table) => (
+          {tables.map((table, index) => (
             <Card
               key={table.id}
               hoverable
-              onClick={() => handleTableClick(table)}
+              onClick={() => handleTableClick(table, isbooked)}
               style={{
-                borderColor: getTableColor(table.status),
+                borderColor: getTableBorderColor(table, isbooked),
                 borderWidth: 2,
-                background:
-                  table.status === 'booked'
-                    ? 'rgba(255, 77, 79, 0.1)'
-                    : 'rgba(82, 196, 26, 0.1)',
+                background: getTableBackgroundColor(table, isbooked),
                 transition: 'all 0.3s ease',
                 cursor: 'pointer',
+                width: '85px',
+                height: '70px',
               }}
               bodyStyle={{
-                padding: 12,
+                padding: 4,
                 textAlign: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
               }}
             >
-              <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                <TableOutlined
-                  style={{
-                    fontSize: 32,
-                    color: getTableColor(table.status),
-                  }}
-                />
-
-                <Text strong style={{ fontSize: 16 }}>
-                  {table.number}
-                </Text>
-
-                <Tag
-                  color={table.status === 'booked' ? 'error' : 'success'}
-                  style={{ fontSize: 10, padding: '2px 8px', margin: 0 }}
-                >
-                  {table.status === 'booked' ? 'BOOKED' : 'AVAILABLE'}
-                </Tag>
-              </Space>
+              <Text
+                strong
+                style={{
+                  fontSize: 11,
+                  color: getTableBorderColor(table, isbooked),
+                  wordBreak: 'break-word',
+                }}
+              >
+                {table.name}
+              </Text>
             </Card>
           ))}
         </div>

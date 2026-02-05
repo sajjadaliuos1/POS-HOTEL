@@ -8,69 +8,93 @@ import {
   Typography,
   Divider,
   Tag,
-  Input,
   message,
   Modal,
   Flex,
   theme,
-  Drawer,
   Badge,
   Space,
   Alert,
 } from 'antd';
 import {
   DeleteOutlined,
-  CreditCardOutlined,
-  DollarOutlined,
   SaveOutlined,
   UserOutlined,
   TableOutlined,
   ShoppingOutlined,
-  WalletOutlined,
-  CreditCardFilled,
-  MobileOutlined,
-  CloseCircleOutlined,
+  UnorderedListOutlined,
+  CheckCircleOutlined,
+  PrinterOutlined,
+  StarOutlined,
+  StarFilled,
 } from '@ant-design/icons';
 import OrderCustomerModal from './Ordercustomermodal';
 import TableBooking from './Tablebooking.jsx';
 import WalkingCustomer from './Walkingcustomer.jsx';
+import ProceedOrderModal from './ProceedOrderModal';
 
 const { Title, Text } = Typography;
 
 // Sample data - NO IMAGES
 const categories = [
-  { id: 1, name: 'Fast Food', color: '#ff4d4f' },
-  { id: 2, name: 'Biryani', color: '#52c41a' },
-  { id: 3, name: 'Chinese', color: '#1890ff' },
-  { id: 4, name: 'Beverages', color: '#faad14' },
-  { id: 5, name: 'Desserts', color: '#eb2f96' },
-  { id: 6, name: 'BBQ', color: '#722ed1' },
-  { id: 7, name: 'BB', color: '#722ed1' },
-  { id: 8, name: 'Q', color: '#722ed1' },
-  { id: 9, name: 'BQ', color: '#722ed1' },
+  { id: 1, name: 'Fast Food', color: '#ff4d4f', orderBy: 1 },
+  { id: 2, name: 'Biryani', color: '#52c41a', orderBy: 2 },
+  { id: 3, name: 'Chinese', color: '#1890ff', orderBy: 3 },
+  { id: 4, name: 'Beverages', color: '#faad14', orderBy: 4 },
+  { id: 5, name: 'Desserts', color: '#eb2f96', orderBy: 5 },
+  { id: 6, name: 'BBQ', color: '#722ed1', orderBy: 6 },
+  { id: 7, name: 'BB', color: '#722ed1', orderBy: 7 },
+  { id: 8, name: 'Q', color: '#722ed1', orderBy: 8 },
+  { id: 9, name: 'BQ', color: '#722ed1', orderBy: 9 },
 ];
 
 const products = [
-  { id: 1, name: 'Chicken Biryani', price: 350, category: 2 },
-  { id: 2, name: 'Mutton Biryani', price: 450, category: 2 },
-  { id: 3, name: 'Zinger Burger', price: 250, category: 1 },
-  { id: 4, name: 'Chicken Burger', price: 200, category: 1 },
-  { id: 5, name: 'Beef Burger', price: 280, category: 1 },
-  { id: 6, name: 'Chicken Chow Mein', price: 300, category: 3 },
-  { id: 7, name: 'Fried Rice', price: 250, category: 3 },
-  { id: 8, name: 'Spring Rolls', price: 150, category: 3 },
-  { id: 9, name: 'Coca Cola', price: 80, category: 4 },
-  { id: 10, name: 'Pepsi', price: 80, category: 4 },
-  { id: 11, name: 'Fresh Juice', price: 150, category: 4 },
-  { id: 12, name: 'Chocolate Cake', price: 200, category: 5 },
-  { id: 13, name: 'Ice Cream', price: 120, category: 5 },
-  { id: 14, name: 'BBQ Chicken', price: 400, category: 6 },
-  { id: 15, name: 'Seekh Kabab', price: 350, category: 6 },
-  { id: 16, name: 'Zinger Burger', price: 250, category: 1 },
-  { id: 17, name: 'Zinger Burger', price: 250, category: 1 },
-  { id: 18, name: 'Zinger Burger', price: 250, category: 1 },
-  { id: 19, name: 'Zinssssssssssssssssssssssssger Burger', price: 250, category: 1 },
-  { id: 20, name: 'Zinger Burger', price: 250, category: 1 },
+  { id: 1, name: 'Chicken Biryani', price: 350, category: 2, color: '#ff4d4f', orderBy: 1 },
+  { id: 2, name: 'Mutton Biryani', price: 450, category: 2, color: '#52c41a', orderBy: 2 },
+  { id: 3, name: 'Zinger Burger', price: 250, category: 1, color: '#1890ff', orderBy: 3 },
+  { id: 4, name: 'Chicken Burger', price: 200, category: 1, color: '#faad14', orderBy: 4 },
+  { id: 5, name: 'Beef Burger', price: 280, category: 1, color: '#eb2f96', orderBy: 5 },
+  { id: 6, name: 'Chicken Chow Mein', price: 300, category: 3, color: '#722ed1', orderBy: 6 },
+  { id: 7, name: 'Fried Rice', price: 250, category: 3, color: '#ff4d4f', orderBy: 7 },
+  { id: 8, name: 'Spring Rolls', price: 150, category: 3, color: '#52c41a', orderBy: 8 },
+  { id: 9, name: 'Coca Cola', price: 80, category: 4, color: '#1890ff', orderBy: 9 },
+  { id: 10, name: 'Pepsi', price: 80, category: 4, color: '#faad14', orderBy: 10 },
+  { id: 11, name: 'Fresh Juice', price: 150, category: 4, color: '#eb2f96', orderBy: 11 },
+  { id: 12, name: 'Chocolate Cake', price: 200, category: 5, color: '#722ed1', orderBy: 12 },
+  { id: 13, name: 'Ice Cream', price: 120, category: 5, color: '#ff4d4f', orderBy: 13 },
+  { id: 14, name: 'BBQ Chicken', price: 400, category: 6, color: '#52c41a', orderBy: 14 },
+  { id: 15, name: 'Seekh Kabab', price: 350, category: 6, color: '#1890ff', orderBy: 15 },
+  { id: 16, name: 'Zinger Burger', price: 250, category: 1, color: '#faad14', orderBy: 16 },
+  { id: 17, name: 'Zinger Burger', price: 250, category: 1, color: '#eb2f96', orderBy: 17 },
+  { id: 18, name: 'Zinger Burger', price: 250, category: 1, color: '#722ed1', orderBy: 18 },
+  { id: 19, name: 'Zinssssssssssssssssssssssssger Burger', price: 250, category: 1, color: '#ff4d4f', orderBy: 19 },
+  { id: 20, name: 'Zinger Burger', price: 250, category: 1, color: '#52c41a', orderBy: 20 },
+];
+
+const initialTables = [
+  { id: 1, name: 'Baramdaa', capacity: 2, status: 'available', bookedBy: null, color: '#faad14', orderBy: 1 },
+  { id: 2, name: 'Garden', capacity: 4, status: 'available', bookedBy: null, color: '#ff4d4f', orderBy: 2 },
+  { id: 3, name: 'Rooftop', capacity: 4, status: 'available', bookedBy: null, color: '#52c41a', orderBy: 3 },
+  { id: 4, name: 'VIP Lounge', capacity: 6, status: 'available', bookedBy: null, color: '#1890ff', orderBy: 4 },
+  { id: 5, name: 'Corner Table', capacity: 2, status: 'available', bookedBy: null, color: '#eb2f96', orderBy: 5 },
+  { id: 6, name: 'Main Hall', capacity: 8, status: 'available', bookedBy: null, color: '#722ed1', orderBy: 6 },
+  { id: 7, name: 'Window Side', capacity: 4, status: 'available', bookedBy: null, color: '#faad14', orderBy: 7 },
+  { id: 8, name: 'Terrace', capacity: 2, status: 'available', bookedBy: null, color: '#ff4d4f', orderBy: 8 },
+  { id: 9, name: 'Family Room', capacity: 4, status: 'available', bookedBy: null, color: '#52c41a', orderBy: 9 },
+  { id: 10, name: 'Private Booth', capacity: 6, status: 'available', bookedBy: null, color: '#1890ff', orderBy: 10 },
+  { id: 11, name: 'Balcony', capacity: 2, status: 'available', bookedBy: null, color: '#eb2f96', orderBy: 11 },
+  { id: 12, name: 'Patio', capacity: 4, status: 'available', bookedBy: null, color: '#722ed1', orderBy: 12 },
+  { id: 13, name: 'Lawn', capacity: 2, status: 'available', bookedBy: null, color: '#faad14', orderBy: 13 },
+  { id: 14, name: 'Gazebo', capacity: 4, status: 'available', bookedBy: null, color: '#ff4d4f', orderBy: 14 },
+  { id: 15, name: 'Pavilion', capacity: 6, status: 'available', bookedBy: null, color: '#52c41a', orderBy: 15 },
+  { id: 16, name: 'Riverside', capacity: 8, status: 'available', bookedBy: null, color: '#1890ff', orderBy: 16 },
+  { id: 17, name: 'Courtyard', capacity: 6, status: 'available', bookedBy: null, color: '#eb2f96', orderBy: 17 },
+  { id: 18, name: 'Veranda', capacity: 2, status: 'available', bookedBy: null, color: '#722ed1', orderBy: 18 },
+  { id: 19, name: 'Deck', capacity: 4, status: 'available', bookedBy: null, color: '#faad14', orderBy: 19 },
+  { id: 20, name: 'Sunroom', capacity: 2, status: 'available', bookedBy: null, color: '#ff4d4f', orderBy: 20 },
+  { id: 21, name: 'Conservatory', capacity: 4, status: 'available', bookedBy: null, color: '#52c41a', orderBy: 21 },
+  { id: 22, name: 'Outdoor Plaza', capacity: 6, status: 'available', bookedBy: null, color: '#1890ff', orderBy: 22 },
+  { id: 23, name: 'Sky Lounge', capacity: 8, status: 'available', bookedBy: null, color: '#eb2f96', orderBy: 23 },
 ];
 
 const Dashboard = ({ selectedTable, onClearTable }) => {
@@ -80,13 +104,14 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
   const [discountFocused, setDiscountFocused] = useState(false);
   const [discount, setDiscount] = useState('0');
   const [customerType, setCustomerType] = useState('walking');
-  const [cartDrawerVisible, setCartDrawerVisible] = useState(false);
   const [orderCustomerModalVisible, setOrderCustomerModalVisible] = useState(false);
   const [selectedOrderCustomer, setSelectedOrderCustomer] = useState(null);
-  const [tableBookingModalVisible, setTableBookingModalVisible] = useState(false);
   const [bookedTables, setBookedTables] = useState(new Set());
   const [internalSelectedTable, setInternalSelectedTable] = useState(null);
-  const [walkingCustomerModalVisible, setWalkingCustomerModalVisible] = useState(false);
+  const [tableBookingModalVisible, setTableBookingModalVisible] = useState(false);
+  const [isBooked, setIsBooked] = useState(false);
+  const [proceedOrderModalVisible, setProceedOrderModalVisible] = useState(false);
+  const [isStarred, setIsStarred] = useState(false);
 
   const {
     token: { colorBgContainer, borderRadiusLG },
@@ -95,13 +120,26 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
   // Use internal state if no parent state is provided
   const currentSelectedTable = selectedTable || internalSelectedTable;
 
-  // Filter products by category - now always filters by selected category
-  const filteredProducts = products.filter((product) => product.category === selectedCategory);
+  // Filter products by category and sort by orderBy
+  const filteredProducts = products
+    .filter((product) => product.category === selectedCategory)
+    .sort((a, b) => a.orderBy - b.orderBy);
+
+  // Sort categories by orderBy
+  const sortedCategories = [...categories].sort((a, b) => a.orderBy - b.orderBy);
+
+  // Sort tables by orderBy
+  const sortedTables = [...initialTables].sort((a, b) => a.orderBy - b.orderBy);
 
   // Get category color
   const getCategoryColor = (categoryId) => {
     const category = categories.find(cat => cat.id === categoryId);
     return category ? category.color : '#1890ff';
+  };
+
+  // Get product color
+  const getProductColor = (product) => {
+    return product.color || getCategoryColor(product.category);
   };
 
   // Calculator button click
@@ -155,8 +193,28 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
   // Calculate totals
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const discountAmount = parseFloat(discount) || 0;
-  const tax = (subtotal - discountAmount) * 0.05;
-  const total = subtotal - discountAmount + tax;
+  const total = subtotal - discountAmount;
+
+  // Handle Print
+  const handlePrint = () => {
+    message.info('Printing order...');
+    // Add your print logic here
+  };
+
+  // Handle Star Toggle
+  const handleStarToggle = () => {
+    setIsStarred(!isStarred);
+    message.success(isStarred ? 'Unmarked as favorite' : 'Marked as favorite');
+  };
+
+  // Handle Proceed Order
+  const handleProceedOrder = () => {
+    if (cart.length === 0) {
+      message.warning('Cart is empty!');
+      return;
+    }
+    setProceedOrderModalVisible(true);
+  };
 
   // Handle Save to Database
   const handleSaveOrder = () => {
@@ -165,26 +223,20 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
       return;
     }
 
-    // For walking customers, show payment modal
-    if (customerType === 'walking') {
-      setWalkingCustomerModalVisible(true);
-      return;
-    }
-
     const orderData = {
       items: cart,
       subtotal,
       discount: discountAmount,
-      tax,
       total,
       customerType,
-      tableNumber: currentSelectedTable ? currentSelectedTable.number : null,
+      tableName: currentSelectedTable ? currentSelectedTable.name : null,
       tableCapacity: currentSelectedTable ? currentSelectedTable.capacity : null,
       orderCustomer: selectedOrderCustomer ? {
         name: selectedOrderCustomer.name,
         phone: selectedOrderCustomer.phone,
         loanAmount: selectedOrderCustomer.loanAmount,
       } : null,
+      isStarred,
       timestamp: new Date().toISOString(),
     };
 
@@ -196,6 +248,8 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
       } else {
         message.success(`Order saved for ${selectedOrderCustomer.name}! Payment pending.`);
       }
+    } else if (customerType === 'table' && currentSelectedTable) {
+      message.success(`Order saved for Table ${currentSelectedTable.name}!`);
     } else {
       message.success('Order saved successfully! Payment completed.');
     }
@@ -204,13 +258,7 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
     setDiscount('0');
     setCalculatorDisplay('');
     setDiscountFocused(false);
-    
-    if (currentSelectedTable) {
-      setTimeout(() => {
-        handleClearTable();
-        setCustomerType('walking');
-      }, 500);
-    }
+    setIsStarred(false);
   };
 
   // Handle Table Customer Click
@@ -218,19 +266,18 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
     setTableBookingModalVisible(true);
   };
 
+  const handleBookedTablesList = () => {
+    setTableBookingModalVisible(true);
+  };
+
   // Handle Table Selection from Modal
   const handleTableSelect = (table) => {
-    // Close the modal directly
     setTableBookingModalVisible(false);
-    
-    // Update all states
+    setSelectedOrderCustomer(null);
     setCustomerType('table');
     setInternalSelectedTable(table);
-    setBookedTables(prev => new Set([...prev, table.number]));
-    
-  
-    // Show success message
-    message.success(`Table ${table.number} selected successfully!`);
+    setBookedTables(prev => new Set([...prev, table.name]));
+    message.success(`Table ${table.name} selected successfully!`);
   };
 
   // Handle Clear Table
@@ -238,7 +285,7 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
     if (currentSelectedTable) {
       setBookedTables(prev => {
         const newSet = new Set(prev);
-        newSet.delete(currentSelectedTable.number);
+        newSet.delete(currentSelectedTable.name);
         return newSet;
       });
     }
@@ -264,31 +311,7 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
     message.success(`${customer.name} selected! You can now place an order.`);
   };
 
-  // Handle Walking Customer Payment Complete
-  const handleWalkingCustomerPayment = (paymentData) => {
-    const orderData = {
-      items: cart,
-      subtotal,
-      discount: discountAmount,
-      tax,
-      total,
-      customerType: 'walking',
-      paymentMethod: paymentData.method,
-      cashReceived: paymentData.cashReceived,
-      change: paymentData.change,
-      timestamp: new Date().toISOString(),
-    };
-
-    console.log('Walking customer order saved:', orderData);
-    
-    // Clear cart and reset
-    setCart([]);
-    setDiscount('0');
-    setCalculatorDisplay('');
-    setDiscountFocused(false);
-  };
-
-  // Desktop Cart columns - UPDATED WITH COMPACT SPACING
+  // Desktop Cart columns
   const desktopColumns = [
     {
       title: 'Item',
@@ -303,7 +326,7 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
             display: 'block',
           }}
         >
-          {text}
+          {`${text} x ${cart.find(item => item.name === text)?.price || 0}`}
         </Text>
       ),
     },
@@ -315,13 +338,6 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
       width: '12%',
     },
     {
-      title: 'Rs',
-      dataIndex: 'price',
-      key: 'price',
-      width: '10%',
-      render: (price) => <Text style={{ fontSize: 11 }}>Rs. {price}</Text>,
-    },
-    {
       title: 'Total',
       key: 'total',
       width: '14%',
@@ -331,47 +347,6 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
       title: '',
       key: 'action',
       width: '7%',
-      render: (_, record) => (
-        <Button
-          danger
-          type="text"
-          size="small"
-          icon={<DeleteOutlined />}
-          onClick={() => removeFromCart(record.id)}
-        />
-      ),
-    },
-  ];
-
-  // Mobile Cart columns - NO IMAGES
-  const mobileColumns = [
-    {
-      title: 'Item',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text, record) => (
-        <Space direction="vertical" size={4}>
-          <Text strong>{text}</Text>
-          <Space size="small">
-            <Text type="secondary" style={{ fontSize: 12 }}>Qty: {record.quantity}</Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>@Rs. {record.price}</Text>
-          </Space>
-        </Space>
-      ),
-    },
-    {
-      title: 'Total',
-      key: 'total',
-      width: 80,
-      align: 'right',
-      render: (_, record) => (
-        <Text strong style={{ fontSize: 14 }}>Rs. {record.price * record.quantity}</Text>
-      ),
-    },
-    {
-      title: '',
-      key: 'action',
-      width: 50,
       render: (_, record) => (
         <Button
           danger
@@ -483,21 +458,64 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
           </Text>
         </Flex>
 
+        {/* Star Button */}
         <Button
-          type="primary"
-          block
           size="small"
-          icon={<SaveOutlined />}
-          onClick={handleSaveOrder}
-          disabled={cart.length === 0}
+          icon={isStarred ? <StarFilled /> : <StarOutlined />}
+          onClick={handleStarToggle}
+          title={isStarred ? 'Unfavorite' : 'Mark Favorite'}
           style={{
-            height: 30,
-            background: '#106314',
-            borderColor: '#106314',
+            height: 24,
+            width: 24,
+            padding: 0,
+            background: isStarred ? '#faad14' : 'white',
+            borderColor: isStarred ? '#faad14' : '#d9d9d9',
+            color: isStarred ? 'white' : '#000',
+            marginBottom: 4,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
-        >
-          Save
-        </Button>
+        />
+
+        {/* Print and Save Buttons */}
+        <Row gutter={4}>
+          <Col span={12}>
+            <Button
+              type="default"
+              block
+              size="small"
+              icon={<PrinterOutlined />}
+              onClick={handlePrint}
+              disabled={cart.length === 0}
+              style={{
+                height: 30,
+                background: '#1890ff',
+                borderColor: '#1890ff',
+                color: 'white',
+              }}
+            >
+              Print
+            </Button>
+          </Col>
+          <Col span={12}>
+            <Button
+              type="primary"
+              block
+              size="small"
+              icon={<SaveOutlined />}
+              onClick={handleSaveOrder}
+              disabled={cart.length === 0}
+              style={{
+                height: 30,
+                background: '#106314',
+                borderColor: '#106314',
+              }}
+            >
+              Save
+            </Button>
+          </Col>
+        </Row>
       </Space>
     </Card>
   );
@@ -512,51 +530,86 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
         flexDirection: 'column',
         overflow: 'hidden'
       }}>
-        {/* Table Number Display - Compact */}
-        {currentSelectedTable && (
-          <Space style={{ marginBottom: 10, flexShrink: 0 }}>
-            <Tag 
-              color="success" 
-              closable
-              onClose={handleClearTable}
-              style={{ 
-                fontSize: 14,
-                padding: '4px 8px',
-                margin: 0
-              }}
-            >
-              <TableOutlined /> Table {currentSelectedTable.number} ({currentSelectedTable.capacity} seats)
-            </Tag>
-          </Space>
-        )}
+        {/* Fixed Alert Container with Proceed Button */}
+       <div style={{ 
+  minHeight: 40,
+  minWidth: '100%',
+  marginBottom: 10, 
+  flexShrink: 0,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+}}>
+  
+  {/* Alerts - Left Side */}
+  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+    {currentSelectedTable && (
+      <Tag 
+        color="success" 
+        closable
+        onClose={handleClearTable}
+        style={{
+          fontSize: 14,
+          padding: '6px 12px',
+          margin: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+        }}
+      >
+        <TableOutlined style={{ marginRight: 6 }} />
+        {currentSelectedTable.name} ({currentSelectedTable.capacity} seats)
+      </Tag>
+    )}
 
-        {/* Order Customer Display - Compact */}
-        {selectedOrderCustomer && (
-          <Space style={{ marginBottom: 10, flexShrink: 0 }}>
-            <Tag 
-              color="warning"
-              closable
-              onClose={() => {
-                setSelectedOrderCustomer(null);
-                setCustomerType('walking');
-              }}
-              style={{ 
-                fontSize: 14,
-                padding: '4px 8px',
-                margin: 0
-              }}
-            >
-              <ShoppingOutlined /> Order for: {selectedOrderCustomer.name}
-            </Tag>
-          </Space>
-        )}
+    {selectedOrderCustomer && (
+      <Tag 
+        color="warning"
+        closable
+        onClose={() => {
+          setSelectedOrderCustomer(null);
+          setCustomerType('walking');
+        }}
+        style={{
+          fontSize: 14,
+          padding: '6px 12px',
+          margin: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+        }}
+      >
+        <ShoppingOutlined style={{ marginRight: 6 }} />
+        Order for: {selectedOrderCustomer.name}
+      </Tag>
+    )}
+  </div>
+
+  {/* Proceed Order Button - Right Side */}
+  <Button
+    type="primary"
+    icon={<CheckCircleOutlined />}
+    onClick={handleProceedOrder}
+    disabled={cart.length === 0}
+    style={{
+      height: 40,
+      fontSize: 13,
+      fontWeight: 'bold',
+      background: '#52c41a',
+      borderColor: '#52c41a',
+      marginLeft: 'auto',
+    }}
+  >
+    Proceed Order
+  </Button>
+
+</div>
+
 
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
           <Row gutter={[10, 10]} align="top" style={{ height: '100%' }}>
           {/* Left Column - Products & Categories */}
           <Col xs={24} lg={16} style={{ height: '100%' }}>
             <Space direction="vertical" size={10} style={{ width: '100%', height: '100%' }}>
-              {/* Products Section - UPDATED WITH PRICE AT BOTTOM AND 2-LINE NAME */}
+              {/* Products Section */}
               <Card
                 style={{ height: '55vh' }}
                 bodyStyle={{
@@ -579,8 +632,8 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
                         hoverable
                         onClick={() => handleProductClick(product)}
                         style={{
-                          background: `linear-gradient(135deg, ${getCategoryColor(product.category)}15, ${getCategoryColor(product.category)}30)`,
-                          borderLeft: `4px solid ${getCategoryColor(product.category)}`,
+                          background: `linear-gradient(135deg, ${getProductColor(product)}15, ${getProductColor(product)}30)`,
+                          borderLeft: `4px solid ${getProductColor(product)}`,
                           height: 80,
                         }}
                         bodyStyle={{
@@ -609,7 +662,7 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
                         </Text>
 
                         <Tag 
-                          color={getCategoryColor(product.category)} 
+                          color={getProductColor(product)} 
                           style={{ 
                             fontSize: 11, 
                             padding: '2px 6px', 
@@ -628,7 +681,7 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
               {/* Categories Section */}
               <Card bodyStyle={{ padding: 8 }}>
                 <Row gutter={[6, 6]}>
-                  {categories.map((category) => (
+                  {sortedCategories.map((category) => (
                     <Col xs={8} sm={6} md={4} lg={4} key={category.id}>
                       <Button
                         type={selectedCategory === category.id ? 'primary' : 'default'}
@@ -639,9 +692,9 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
                           height: 50,
                           fontSize: 12,
                           fontWeight: 'bold',
-                          backgroundColor: selectedCategory === category.id ? undefined : category.color,
-                          borderColor: selectedCategory === category.id ? undefined : category.color,
-                          color: selectedCategory === category.id ? undefined : 'white',
+                          backgroundColor: selectedCategory === category.id ? 'white' : category.color,
+                          borderColor: selectedCategory === category.id ? category.color : category.color,
+                          color: selectedCategory === category.id ? category.color : 'white',
                         }}
                       >
                         {category.name}
@@ -653,7 +706,7 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
 
               {/* Customer Type Buttons */}
               <Row gutter={[6, 6]}>
-                <Col xs={24} sm={8}>
+                <Col xs={24} sm={8} md={6}>
                   <Button
                     type={customerType === 'walking' ? 'primary' : 'default'}
                     block
@@ -675,13 +728,16 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
                     Walking Customer
                   </Button>
                 </Col>
-                <Col xs={24} sm={8}>
+                <Col xs={24} sm={8} md={6}>
                   <Button
                     type={customerType === 'table' || currentSelectedTable ? 'primary' : 'default'}
                     block
                     size="large"
                     icon={<TableOutlined />}
-                    onClick={handleTableCustomer}
+                    onClick={() => {
+                      handleTableCustomer();
+                      setIsBooked(false);
+                    }}
                     style={{
                       height: 45,
                       fontSize: 13,
@@ -690,10 +746,31 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
                       borderColor: (customerType === 'table' || currentSelectedTable) ? '#52c41a' : undefined,
                     }}
                   >
-                    {currentSelectedTable ? `Table ${currentSelectedTable.number}` : 'Table Customer'}
+                    {currentSelectedTable ? currentSelectedTable.name : 'Table Customer'}
                   </Button>
                 </Col>
-                <Col xs={24} sm={8}>
+                <Col xs={24} sm={8} md={6}>
+                  <Badge count={bookedTables.size} offset={[-5, 5]}>
+                    <Button
+                      block
+                      size="large"
+                      icon={<UnorderedListOutlined />}
+                      onClick={() => {
+                        handleBookedTablesList();
+                        setIsBooked(true);
+                      }}
+                      disabled={bookedTables.size === 0}
+                      style={{
+                        height: 45,
+                        fontSize: 13,
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      Booked Tables
+                    </Button>
+                  </Badge>
+                </Col>
+                <Col xs={24} sm={8} md={6}>
                   <Button
                     type={customerType === 'order' || selectedOrderCustomer ? 'primary' : 'default'}
                     block
@@ -715,90 +792,54 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
             </Space>
           </Col>
 
-          {/* Right Column - Cart & Calculator (Desktop Only) */}
-        <Col xs={0} lg={8} style={{ height: '100%' }}>
-  <div style={{
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 6,
-    height: '100%'}}>
+          {/* Right Column - Cart & Calculator */}
+          <Col xs={0} lg={8} style={{ height: '100%' }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              height: '100%'
+            }}>
 
-    {/* Cart Section - REMOVED TITLE, COMPACT TABLE */}
-   <Card
-  bordered
-  style={{
-    height: '55vh',
-  }}
-  bodyStyle={{
-    padding: 0,
-    height: '100%',
-    overflow: 'hidden',
-  }}
->
-  <div style={{ height: '100%', overflow: 'auto' }}>
-    <Table
-      dataSource={cart}
-      columns={desktopColumns}
-      rowKey="id"
-      pagination={false}
-      size="small"
-      scroll={{ y: 400 }}   // ⭐ NUMBER do, % nahi
-      sticky={{ offsetHeader: -10 }}
-          
-    />
-  </div>
-</Card>
+              {/* Cart Section */}
+              <Card
+                bordered
+                style={{
+                  height: '55vh',
+                }}
+                bodyStyle={{
+                  padding: 0,
+                  height: '100%',
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{ height: '100%', overflow: 'auto' }}>
+                  <Table
+                    dataSource={cart}
+                    columns={desktopColumns}
+                    rowKey="id"
+                    pagination={false}
+                    size="small"
+                    scroll={{ y: 400 }}
+                    sticky={{ offsetHeader: -10 }}
+                  />
+                </div>
+              </Card>
 
-
-
-    {/* Calculator & Billing */}
-    <Row gutter={10}>
-      <Col span={13}>
-        <CalculatorComponent />
-      </Col>
-      <Col span={11}>
-        <BillingSummary />
-      </Col>
-    </Row>
-  </div>
-</Col>
+              {/* Calculator & Billing */}
+              <Row gutter={10}>
+                <Col span={13}>
+                  <CalculatorComponent />
+                </Col>
+                <Col span={11}>
+                  <BillingSummary />
+                </Col>
+              </Row>
+            </div>
+          </Col>
         </Row>
         </div>
       </div>
-
-      {/* Mobile Cart Drawer */}
-      <Drawer
-        title={
-          <Space size="small">
-            <Tag color="blue">{cart.length} items</Tag>
-          </Space>
-        }
-        placement="right"
-        onClose={() => setCartDrawerVisible(false)}
-        open={cartDrawerVisible}
-        width="100%"
-        bodyStyle={{ padding: 0 }}
-      >
-        <Flex vertical style={{ height: '100%' }}>
-          <div style={{ flex: 1, overflow: 'auto' }}>
-            <Table
-              dataSource={cart}
-              columns={mobileColumns}
-              rowKey="id"
-              pagination={false}
-              locale={{ emptyText: 'No items in cart' }}
-              size="middle"
-            />
-          </div>
-
-          <div style={{ padding: 16, background: colorBgContainer, borderTop: '1px solid #f0f0f0' }}>
-            <Space direction="vertical" size={16} style={{ width: '100%' }}>
-              <CalculatorComponent isModal={true} />
-              <BillingSummary isModal={true} />
-            </Space>
-          </div>
-        </Flex>
-      </Drawer>
 
       {/* Order Customer Modal */}
       <OrderCustomerModal
@@ -807,35 +848,45 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
         onSelectCustomer={handleOrderCustomerSelect}
       />
 
-      {/* Walking Customer Payment Modal */}
-      <WalkingCustomer
-        visible={walkingCustomerModalVisible}
-        onClose={() => setWalkingCustomerModalVisible(false)}
-        orderTotal={total}
-        onPaymentComplete={handleWalkingCustomerPayment}
-      />
-
       {/* Table Booking Modal */}
       <Modal
         title={null}
         open={tableBookingModalVisible}
         onCancel={() => setTableBookingModalVisible(false)}
         footer={null}
-       width={700}
-        
-       style={{ top: 20 }}
-        bodyStyle={{ padding: 0,
-           height: '65vh', overflow: 'hidden'
-         }
-      }
+        width={1000}
+        style={{ top: 20 }}
+        bodyStyle={{ 
+          padding: 0,
+          height: '50vh', 
+          overflow: 'hidden'
+        }}
         maskClosable={true}
       >
         <TableBooking
+          initialTables={sortedTables}
           onTableSelect={handleTableSelect}
           onBack={() => setTableBookingModalVisible(false)}
           bookedTables={bookedTables}
+          isbooked={isBooked}
         />
       </Modal>
+
+      {/* Proceed Order Modal */}
+      <ProceedOrderModal
+        visible={proceedOrderModalVisible}
+        onClose={() => setProceedOrderModalVisible(false)}
+        cart={cart}
+        subtotal={subtotal}
+        discount={discountAmount}
+        total={total}
+        currentSelectedTable={currentSelectedTable}
+        selectedOrderCustomer={selectedOrderCustomer}
+        onConfirm={() => {
+          handleSaveOrder();
+          setProceedOrderModalVisible(false);
+        }}
+      />
     </>
   );
 };
