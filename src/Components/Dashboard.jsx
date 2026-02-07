@@ -27,11 +27,15 @@ import {
   PrinterOutlined,
   StarOutlined,
   StarFilled,
+  RollbackOutlined,
+  DollarOutlined,
 } from '@ant-design/icons';
 import OrderCustomerModal from './Ordercustomermodal';
 import TableBooking from './Tablebooking.jsx';
 import WalkingCustomer from './Walkingcustomer.jsx';
 import ProceedOrderModal from './ProceedOrderModal';
+import ReturnOrderModal from './Returnordermodal.jsx';
+import PaymentModal from './PaymentModal.jsx';
 
 const { Title, Text } = Typography;
 
@@ -112,6 +116,8 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
   const [isBooked, setIsBooked] = useState(false);
   const [proceedOrderModalVisible, setProceedOrderModalVisible] = useState(false);
   const [isStarred, setIsStarred] = useState(false);
+  const [returnOrderModalVisible, setReturnOrderModalVisible] = useState(false);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
 
   const {
     token: { colorBgContainer, borderRadiusLG },
@@ -158,6 +164,15 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
       } else if (value === '⌫') {
         setCalculatorDisplay(calculatorDisplay.slice(0, -1));
       } else {
+        const newValue = calculatorDisplay + value;
+        const quantity = parseInt(newValue) || 0;
+        
+        // Check if quantity exceeds 10
+        if (quantity > 10) {
+          message.warning('10 se zayada product select nahi ho sakta!');
+          return;
+        }
+        
         setCalculatorDisplay(calculatorDisplay + value);
       }
     }
@@ -214,6 +229,11 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
       return;
     }
     setProceedOrderModalVisible(true);
+  };
+
+  // Handle Return Order
+  const handleReturnOrder = () => {
+    setReturnOrderModalVisible(true);
   };
 
   // Handle Save to Database
@@ -412,7 +432,7 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
     <Card
       bordered={false}
       style={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
         height: isModal ? 'auto' : 195,
       }}
       headStyle={{ borderBottom: '1px solid rgba(255,255,255,0.2)' }}
@@ -420,7 +440,7 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
     >
       <Space direction="vertical" size={6} style={{ width: '100%' }}>
         <Flex justify="flex-end">
-          <Text strong style={{ color: 'white', fontSize: 15 }}>
+          <Text strong style={{ color: '#2e7d32', fontSize: 15 }}>
             Rs. {subtotal.toFixed(2)}
           </Text>
         </Flex>
@@ -447,13 +467,13 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
 
         <Divider
           style={{
-            borderColor: 'rgba(255,255,255,0.3)',
+            borderColor: 'rgba(46,125,50,0.3)',
             margin: '2px 0',
           }}
         />
 
         <Flex justify="flex-end">
-          <Text strong style={{ color: 'white', fontSize: 22 }}>
+          <Text strong style={{ color: '#1b5e20', fontSize: 22 }}>
             Rs. {total.toFixed(2)}
           </Text>
         </Flex>
@@ -530,7 +550,7 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
         flexDirection: 'column',
         overflow: 'hidden'
       }}>
-        {/* Fixed Alert Container with Proceed Button */}
+        {/* Fixed Alert Container with Table Change, Return and Proceed Buttons */}
        <div style={{ 
   minHeight: 40,
   minWidth: '100%',
@@ -583,23 +603,78 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
     )}
   </div>
 
-  {/* Proceed Order Button - Right Side */}
-  <Button
-    type="primary"
-    icon={<CheckCircleOutlined />}
-    onClick={handleProceedOrder}
-    disabled={cart.length === 0}
-    style={{
-      height: 40,
-      fontSize: 13,
-      fontWeight: 'bold',
-      background: '#52c41a',
-      borderColor: '#52c41a',
-      marginLeft: 'auto',
-    }}
-  >
-    Proceed Order
-  </Button>
+  {/* Table Change, Payment, Return and Proceed Buttons - Right Side */}
+  <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+    {/* Table Change Button - Only show when table is selected */}
+    {currentSelectedTable && (
+      <Button
+        type="default"
+        icon={<TableOutlined />}
+        onClick={() => {
+          setTableBookingModalVisible(true);
+          setIsBooked(false); // Show available tables for changing
+        }}
+        style={{
+          height: 40,
+          fontSize: 13,
+          fontWeight: 'bold',
+          background: '#1890ff',
+          borderColor: '#1890ff',
+          color: 'white',
+        }}
+      >
+        Table Change
+      </Button>
+    )}
+    
+    <Button
+      type="default"
+      icon={<DollarOutlined />}
+      onClick={() => setPaymentModalVisible(true)}
+      style={{
+        height: 40,
+        fontSize: 13,
+        fontWeight: 'bold',
+        background: '#faad14',
+        borderColor: '#faad14',
+        color: 'white',
+      }}
+    >
+      Payment
+    </Button>
+    
+    <Button
+      type="default"
+      icon={<RollbackOutlined />}
+      onClick={handleReturnOrder}
+      style={{
+        height: 40,
+        fontSize: 13,
+        fontWeight: 'bold',
+        background: '#ff4d4f',
+        borderColor: '#ff4d4f',
+        color: 'white',
+      }}
+    >
+      Return
+    </Button>
+    
+    <Button
+      type="primary"
+      icon={<CheckCircleOutlined />}
+      onClick={handleProceedOrder}
+      disabled={cart.length === 0}
+      style={{
+        height: 40,
+        fontSize: 13,
+        fontWeight: 'bold',
+        background: '#52c41a',
+        borderColor: '#52c41a',
+      }}
+    >
+      Proceed Order
+    </Button>
+  </div>
 
 </div>
 
@@ -885,6 +960,22 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
         onConfirm={() => {
           handleSaveOrder();
           setProceedOrderModalVisible(false);
+        }}
+      />
+
+      {/* Return Order Modal */}
+      <ReturnOrderModal
+        visible={returnOrderModalVisible}
+        onClose={() => setReturnOrderModalVisible(false)}
+      />
+
+      {/* Payment Modal */}
+      <PaymentModal
+        visible={paymentModalVisible}
+        onClose={() => setPaymentModalVisible(false)}
+        onSave={(paymentData) => {
+          console.log('Payment saved:', paymentData);
+          // Add your payment save logic here
         }}
       />
     </>
