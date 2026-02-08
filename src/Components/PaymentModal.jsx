@@ -10,6 +10,8 @@ import {
   Typography,
   Space,
   message,
+  Input,
+  Tag,
 } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 
@@ -17,17 +19,43 @@ const { Text } = Typography;
 
 const PaymentModal = ({ visible, onClose, onSave }) => {
   const [paymentType, setPaymentType] = useState('in');
-  const [amount, setAmount] = useState('0');
+  const [amount, setAmount] = useState('');
+  const [selectedHint, setSelectedHint] = useState('');
+
+  // Quick payment hints
+  const paymentHints = [
+    'BC',
+    'Electricity',
+    'Rent',
+    'Salary',
+    'Supplies',
+    'Maintenance',
+    
+  ];
 
   // Handle calculator button click
   const handleCalculatorClick = (value) => {
     if (value === 'C') {
-      setAmount('0');
+      setAmount('');
     } else if (value === '⌫') {
-      setAmount(amount.length > 1 ? amount.slice(0, -1) : '0');
+      setAmount(amount.length > 0 ? amount.slice(0, -1) : '');
     } else {
-      setAmount(amount === '0' ? value : amount + value);
+      setAmount(amount + value);
     }
+  };
+
+  // Handle amount input change
+  const handleAmountChange = (e) => {
+    const value = e.target.value;
+    // Only allow numbers
+    if (/^\d*$/.test(value)) {
+      setAmount(value);
+    }
+  };
+
+  // Handle hint selection
+  const handleHintClick = (hint) => {
+    setSelectedHint(hint);
   };
 
   // Handle Save
@@ -39,9 +67,15 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
       return;
     }
 
+    if (!selectedHint) {
+      message.warning('Please select a payment category!');
+      return;
+    }
+
     const paymentData = {
       type: paymentType,
       amount: amountValue,
+      category: selectedHint,
       timestamp: new Date().toISOString(),
     };
 
@@ -51,18 +85,20 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
       onSave(paymentData);
     }
 
-    message.success(`Payment ${paymentType === 'in' ? 'In' : 'Out'}: Rs. ${amountValue} saved successfully!`);
+    message.success(`Payment ${paymentType === 'in' ? 'In' : 'Out'}: Rs. ${amountValue} (${selectedHint}) saved successfully!`);
     
     // Reset form
     setPaymentType('in');
-    setAmount('0');
+    setAmount('');
+    setSelectedHint('');
     onClose();
   };
 
   // Handle Modal Close
   const handleClose = () => {
     setPaymentType('in');
-    setAmount('0');
+    setAmount('');
+    setSelectedHint('');
     onClose();
   };
 
@@ -72,18 +108,18 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
       open={visible}
       onCancel={handleClose}
       footer={null}
-      width={350}
+      width={320}
       centered
       maskClosable={true}
     >
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space direction="vertical" size={10} style={{ width: '100%' }}>
         {/* Radio Buttons - In/Out */}
         <Card 
           bordered={false} 
-          bodyStyle={{ padding: 12 }}
+          bodyStyle={{ padding: 8 }}
           style={{
             background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-            borderRadius: 8,
+            borderRadius: 6,
           }}
         >
           <Radio.Group
@@ -91,17 +127,17 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
             onChange={(e) => setPaymentType(e.target.value)}
             style={{ width: '100%' }}
           >
-            <Row gutter={8}>
+            <Row gutter={6}>
               <Col span={12}>
                 <Radio.Button
                   value="in"
                   style={{
                     width: '100%',
-                    height: 40,
+                    height: 32,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: 15,
+                    fontSize: 13,
                     fontWeight: 'bold',
                     background: paymentType === 'in' ? '#52c41a' : undefined,
                     borderColor: paymentType === 'in' ? '#52c41a' : undefined,
@@ -116,11 +152,11 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
                   value="out"
                   style={{
                     width: '100%',
-                    height: 40,
+                    height: 32,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: 15,
+                    fontSize: 13,
                     fontWeight: 'bold',
                     background: paymentType === 'out' ? '#ff4d4f' : undefined,
                     borderColor: paymentType === 'out' ? '#ff4d4f' : undefined,
@@ -134,49 +170,73 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
           </Radio.Group>
         </Card>
 
-        {/* Amount Display */}
-        <Card
-          bordered={false}
-          bodyStyle={{ padding: 0 }}
-        >
-          <Flex
-            align="center"
-            justify="flex-end"
-            style={{
-              background: paymentType === 'in' ? '#f6ffed' : '#fff2f0',
-              border: `2px solid ${paymentType === 'in' ? '#52c41a' : '#ff4d4f'}`,
-              padding: 10,
-              borderRadius: 8,
-              fontSize: 20,
-              fontWeight: 'bold',
-              fontFamily: 'monospace',
-              color: paymentType === 'in' ? '#52c41a' : '#ff4d4f',
-              minHeight: 45,
-            }}
+        {/* Amount Input Field */}
+        <Space direction="vertical" size={6} style={{ width: '100%' }}>
+          <Card
+            bordered={false}
+            bodyStyle={{ padding: 0 }}
           >
-            Rs. {amount}
+            <Input
+              placeholder="Enter amount"
+              value={amount}
+              onChange={handleAmountChange}
+              prefix={<Text strong style={{ color: paymentType === 'in' ? '#52c41a' : '#ff4d4f', fontSize: 14 }}>Rs.</Text>}
+              style={{
+                background: paymentType === 'in' ? '#f6ffed' : '#fff2f0',
+                border: `2px solid ${paymentType === 'in' ? '#52c41a' : '#ff4d4f'}`,
+                padding: '6px 10px',
+                borderRadius: 6,
+                fontSize: 16,
+                fontWeight: 'bold',
+                fontFamily: 'monospace',
+                color: paymentType === 'in' ? '#52c41a' : '#ff4d4f',
+                minHeight: 36,
+              }}
+              autoFocus
+            />
+          </Card>
+
+          {/* Payment Category Hints - One Line */}
+          <Flex wrap="wrap" gap={4} style={{ paddingLeft: 2 }}>
+            {paymentHints.map((hint) => (
+              <Tag
+                key={hint}
+                color={selectedHint === hint ? (paymentType === 'in' ? 'green' : 'red') : 'default'}
+                style={{
+                  cursor: 'pointer',
+                  fontSize: 9,
+                  padding: '1px 5px',
+                  margin: 0,
+                  borderRadius: 6,
+                  fontWeight: selectedHint === hint ? 'bold' : 'normal',
+                }}
+                onClick={() => handleHintClick(hint)}
+              >
+                {hint}
+              </Tag>
+            ))}
           </Flex>
-        </Card>
+        </Space>
 
         {/* Calculator */}
         <Card
           bordered={false}
-          bodyStyle={{ padding: 6 }}
+          bodyStyle={{ padding: 4 }}
           style={{
             background: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)',
-            borderRadius: 8,
+            borderRadius: 6,
           }}
         >
-          <Row gutter={[4, 4]}>
+          <Row gutter={[3, 3]}>
             {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((btn) => (
               <Col span={8} key={btn}>
                 <Button
                   block
-                  size="middle"
+                  size="small"
                   onClick={() => handleCalculatorClick(btn)}
                   style={{
-                    height: 38,
-                    fontSize: 16,
+                    height: 30,
+                    fontSize: 13,
                     fontWeight: 'bold',
                     background: btn === 'C' ? '#ff4d4f' : btn === '⌫' ? '#faad14' : undefined,
                     borderColor: btn === 'C' ? '#ff4d4f' : btn === '⌫' ? '#faad14' : undefined,
@@ -194,18 +254,18 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
         <Button
           type="primary"
           block
-          size="large"
+          size="middle"
           icon={<SaveOutlined />}
           onClick={handleSave}
           style={{
-            height: 40,
-            fontSize: 14,
+            height: 36,
+            fontSize: 13,
             fontWeight: 'bold',
             background: '#1890ff',
             borderColor: '#1890ff',
           }}
         >
-          Save Payment
+          Save {selectedHint && `- ${selectedHint}`}
         </Button>
       </Space>
     </Modal>
