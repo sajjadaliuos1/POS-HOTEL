@@ -108,7 +108,7 @@ const AlphabetFilter = ({ data, selectedLetter, onLetterClick, onClearFilter }) 
   );
 };
 
-const OrderCustomerModal = ({ visible, onClose, onSelectCustomer }) => {
+  const OrderCustomerModal = ({ visible, onClose, onSelectCustomer }) => {
   const [searchText, setSearchText] = useState('');
   const [selectedLetter, setSelectedLetter] = useState(null);
   const [addCustomerVisible, setAddCustomerVisible] = useState(false);

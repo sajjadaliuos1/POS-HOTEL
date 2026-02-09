@@ -29,6 +29,7 @@ import {
   StarFilled,
   RollbackOutlined,
   DollarOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 import OrderCustomerModal from './Ordercustomermodal';
 import TableBooking from './Tablebooking.jsx';
@@ -36,7 +37,8 @@ import WalkingCustomer from './Walkingcustomer.jsx';
 import ProceedOrderModal from './ProceedOrderModal';
 import ReturnOrderModal from './Returnordermodal.jsx';
 import PaymentModal from './PaymentModal.jsx';
-
+import ExpenseModal from './ExpenseModal';
+import RotiModal from './RotiModal';
 const { Title, Text } = Typography;
 
 // Sample data - NO IMAGES
@@ -118,7 +120,8 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
   const [isStarred, setIsStarred] = useState(false);
   const [returnOrderModalVisible, setReturnOrderModalVisible] = useState(false);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
-
+  const [expenseModalVisible, setExpenseModalVisible] = useState(false);
+  const [rotiModalVisible, setRotiModalVisible] = useState(false);
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
@@ -606,27 +609,21 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
   {/* Table Change, Payment, Return and Proceed Buttons - Right Side */}
   <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
     {/* Table Change Button - Only show when table is selected */}
-    {currentSelectedTable && (
-      <Button
-        type="default"
-        icon={<TableOutlined />}
-        onClick={() => {
-          setTableBookingModalVisible(true);
-          setIsBooked(false); // Show available tables for changing
-        }}
-        style={{
-          height: 40,
-          fontSize: 13,
-          fontWeight: 'bold',
-          background: '#1890ff',
-          borderColor: '#1890ff',
-          color: 'white',
-        }}
-      >
-        Table Change
-      </Button>
-    )}
-    
+    <Button
+  type="default"
+  icon={<AppstoreOutlined />}
+  onClick={() => setRotiModalVisible(true)}
+  style={{
+    height: 40,
+    fontSize: 13,
+    fontWeight: 'bold',
+    background: '#fa8c16',
+    borderColor: '#fa8c16',
+    color: 'white',
+  }}
+>
+  Roti
+</Button>
     <Button
       type="default"
       icon={<DollarOutlined />}
@@ -640,9 +637,25 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
         color: 'white',
       }}
     >
-      Payment
+      Quick payment
     </Button>
     
+    <Button
+  type="default"
+  icon={<DollarOutlined />}
+  onClick={() => setExpenseModalVisible(true)}
+  style={{
+    height: 40,
+    fontSize: 13,
+    fontWeight: 'bold',
+    background: '#722ed1',
+    borderColor: '#722ed1',
+    color: 'white',
+  }}
+>
+  Payment
+</Button>
+
     <Button
       type="default"
       icon={<RollbackOutlined />}
@@ -780,90 +793,130 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
               </Card>
 
               {/* Customer Type Buttons */}
-              <Row gutter={[6, 6]}>
-                <Col xs={24} sm={8} md={6}>
-                  <Button
-                    type={customerType === 'walking' ? 'primary' : 'default'}
-                    block
-                    size="large"
-                    icon={<UserOutlined />}
-                    onClick={() => {
-                      setCustomerType('walking');
-                      setSelectedOrderCustomer(null);
-                      handleClearTable();
-                    }}
-                    style={{
-                      height: 45,
-                      fontSize: 13,
-                      fontWeight: 'bold',
-                      background: customerType === 'walking' ? '#1890ff' : undefined,
-                      borderColor: customerType === 'walking' ? '#1890ff' : undefined,
-                    }}
-                  >
-                    Walking Customer
-                  </Button>
-                </Col>
-                <Col xs={24} sm={8} md={6}>
-                  <Button
-                    type={customerType === 'table' || currentSelectedTable ? 'primary' : 'default'}
-                    block
-                    size="large"
-                    icon={<TableOutlined />}
-                    onClick={() => {
-                      handleTableCustomer();
-                      setIsBooked(false);
-                    }}
-                    style={{
-                      height: 45,
-                      fontSize: 13,
-                      fontWeight: 'bold',
-                      background: (customerType === 'table' || currentSelectedTable) ? '#52c41a' : undefined,
-                      borderColor: (customerType === 'table' || currentSelectedTable) ? '#52c41a' : undefined,
-                    }}
-                  >
-                    {currentSelectedTable ? currentSelectedTable.name : 'Table Customer'}
-                  </Button>
-                </Col>
-                <Col xs={24} sm={8} md={6}>
-                  <Badge count={bookedTables.size} offset={[-5, 5]}>
-                    <Button
-                      block
-                      size="large"
-                      icon={<UnorderedListOutlined />}
-                      onClick={() => {
-                        handleBookedTablesList();
-                        setIsBooked(true);
-                      }}
-                      disabled={bookedTables.size === 0}
-                      style={{
-                        height: 45,
-                        fontSize: 13,
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      Booked Tables
-                    </Button>
-                  </Badge>
-                </Col>
-                <Col xs={24} sm={8} md={6}>
-                  <Button
-                    type={customerType === 'order' || selectedOrderCustomer ? 'primary' : 'default'}
-                    block
-                    size="large"
-                    icon={<ShoppingOutlined />}
-                    onClick={handleOrderCustomer}
-                    style={{
-                      height: 45,
-                      fontSize: 13,
-                      fontWeight: 'bold',
-                      background: (customerType === 'order' || selectedOrderCustomer) ? '#faad14' : undefined,
-                      borderColor: (customerType === 'order' || selectedOrderCustomer) ? '#faad14' : undefined,
-                    }}
-                  >
-                    {selectedOrderCustomer ? selectedOrderCustomer.name : 'Order Customer'}
-                  </Button>
-                </Col>
-              </Row>
+       <Row gutter={[8, 8]} wrap>
+
+  {/* Walking Customer */}
+  <Col flex="1">
+    <Button
+      type={customerType === 'walking' ? 'primary' : 'default'}
+      block
+      size="large"
+      icon={<UserOutlined />}
+      style={{ 
+        height: 42, 
+        fontSize: 12, 
+        fontWeight: 600,
+        whiteSpace: "nowrap"
+      }}
+      onClick={() => {
+        setCustomerType('walking');
+        setSelectedOrderCustomer(null);
+        handleClearTable();
+      }}
+    >
+      Walking Customer
+    </Button>
+  </Col>
+
+  {/* Order Customer */}
+  <Col flex="1">
+    <Button
+      type={customerType === 'order' || selectedOrderCustomer ? 'primary' : 'default'}
+      block
+      size="large"
+      icon={<ShoppingOutlined />}
+      style={{ 
+        height: 42, 
+        fontSize: 12, 
+        fontWeight: 600,
+        whiteSpace: "nowrap"
+      }}
+      onClick={handleOrderCustomer}
+    >
+      {selectedOrderCustomer ? selectedOrderCustomer.name : 'Order Customer'}
+    </Button>
+  </Col>
+
+  {/* All Tables */}
+  <Col flex="1">
+    <Button
+      type={customerType === 'table' || currentSelectedTable ? 'primary' : 'default'}
+      block
+      icon={<TableOutlined />}
+      style={{
+        height: 42,
+        fontSize: 12,
+        fontWeight: 600,
+        background:
+          customerType === 'table' || currentSelectedTable
+            ? '#52c41a'
+            : undefined,
+        borderColor:
+          customerType === 'table' || currentSelectedTable
+            ? '#52c41a'
+            : undefined,
+        whiteSpace: "nowrap"
+      }}
+      onClick={() => {
+        handleTableCustomer();
+        setIsBooked(false);
+      }}
+    >
+      {currentSelectedTable ? currentSelectedTable.name : 'All Tables'}
+    </Button>
+  </Col>
+
+  {/* Booked Tables */}
+  <Col flex="1">
+    <Badge count={bookedTables.size}>
+      <Button
+        block
+        icon={<UnorderedListOutlined />}
+        disabled={bookedTables.size === 0}
+        style={{
+          height: 42,
+          fontSize: 12,
+          fontWeight: 600,
+          whiteSpace: "nowrap"
+        }}
+        onClick={() => {
+          handleBookedTablesList();
+          setIsBooked(true);
+        }}
+      >
+        Booked Tables
+      </Button>
+    </Badge>
+  </Col>
+
+  {/* Change Table */}
+  <Col flex="1">
+    <Button
+      block
+      icon={<TableOutlined />}
+      disabled={!currentSelectedTable}
+      style={{
+        height: 42,
+        fontSize: 12,
+        fontWeight: 600,
+        background: currentSelectedTable ? '#1890ff' : undefined,
+        borderColor: currentSelectedTable ? '#1890ff' : undefined,
+        color: currentSelectedTable ? '#fff' : undefined,
+        whiteSpace: "nowrap"
+      }}
+      onClick={() => {
+        setTableBookingModalVisible(true);
+        setIsBooked(false);
+      }}
+    >
+      Change Table
+    </Button>
+  </Col>
+
+</Row>
+
+
+
             </Space>
           </Col>
 
@@ -978,6 +1031,16 @@ const Dashboard = ({ selectedTable, onClearTable }) => {
           // Add your payment save logic here
         }}
       />
+      {/* Expense Modal */}
+<ExpenseModal
+  visible={expenseModalVisible}
+  onClose={() => setExpenseModalVisible(false)}
+/>
+{/* Roti Modal */}
+<RotiModal
+  visible={rotiModalVisible}
+  onClose={() => setRotiModalVisible(false)}
+/>
     </>
   );
 };

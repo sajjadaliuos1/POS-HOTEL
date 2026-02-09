@@ -26,7 +26,6 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
   const paymentHints = [
     'BC',
     'Electricity',
-    'Rent',
     'Salary',
     'Supplies',
     'Maintenance',
