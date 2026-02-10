@@ -276,7 +276,7 @@ const RotiModal = ({ visible, onClose }) => {
             bodyStyle={{ padding: 12 }}
             headStyle={{ minHeight: 38, padding: '8px 12px' }}
             style={{
-              background: 'linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%)',
+             background: 'linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%)',
               height: '100%',
             }}
           >
@@ -336,8 +336,8 @@ const RotiModal = ({ visible, onClose }) => {
   style={{
     height: 60,
     marginTop: 8,
-    background: 'linear-gradient(135deg, #52c41a 0%, #389e0d 100%)',
-    borderColor: '#52c41a',
+    background: 'linear-gradient(135deg, #1890ff 0%, #1890ff 100%)',
+    borderColor:'#1890ff',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -367,7 +367,7 @@ const RotiModal = ({ visible, onClose }) => {
             bodyStyle={{ padding: 0 }}
             headStyle={{ minHeight: 38, padding: '8px 12px' }}
             style={{
-              background: 'linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%)',
+              background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
             }}
           >
             <div style={{ maxHeight: 400, overflowY: 'auto' }}>

@@ -22,7 +22,7 @@ import {
   PercentageOutlined,
   CloseCircleOutlined,
 } from '@ant-design/icons';
-import AddCustomerModal from './AddCustomerModal';
+import AddCustomerModal from '../../Customer/AddCustomerModal'
 
 const { Text } = Typography;
 
