@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Row,
   Col,
@@ -107,62 +107,124 @@ const Sale = ({ selectedTable, onClearTable }) => {
   const [tables, setTables] = useState([]);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const [hasPendingCustomerOrders, setHasPendingCustomerOrders] = useState(false);
+  const [autoSaveTimer, setAutoSaveTimer] = useState(null);
 
   const {
     token: { borderRadiusLG },
   } = theme.useToken();
 
   const currentSelectedTable = selectedTable || internalSelectedTable;
+  
+  // ✅ FIX: Calculate booked tables count using useMemo to ensure it updates properly
+  const bookedTablesCount = useMemo(() => bookedTables.size, [bookedTables]);
+
+  // ✅ Auto-save and clear when clicking outside product area
+  const handleAutoSaveAndClear = async () => {
+    if (currentSelectedTable && cart.length > 0) {
+      // Already saved via handleProductClick, just clear UI
+      setCart([]);
+      setDiscount('0');
+      setCalculatorDisplay('');
+      setInternalSelectedTable(null);
+    } else if (selectedOrderCustomer && cart.length > 0) {
+      // Save customer order and clear
+      try {
+        await dbHelper.addToCustomerOrder(selectedOrderCustomer, cart);
+        setCart([]);
+        setDiscount('0');
+        setCalculatorDisplay('');
+      } catch (error) {
+        console.error('Error saving customer order:', error);
+      }
+    }
+  };
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        console.log('🔄 Initializing app...');
+        
+        // Initialize database
         await dbHelper.initDB();
+        console.log('✅ Database initialized');
 
+        // Load or initialize tables
         let cachedTables = await dbHelper.getTables();
+        console.log('📊 Tables loaded:', cachedTables.length);
+        
         if (cachedTables.length === 0) {
+          console.log('💾 Saving initial tables...');
           await dbHelper.saveTables(initialTables);
           cachedTables = initialTables;
         }
         setTables(cachedTables);
 
+        // Load or initialize categories
         let cachedCategories = await dbHelper.getCategories();
+        console.log('📂 Categories loaded:', cachedCategories.length);
+        
         if (cachedCategories.length === 0) {
+          console.log('💾 Saving initial categories...');
           await dbHelper.saveCategories(initialCategories);
           cachedCategories = initialCategories;
         }
         setCategories(cachedCategories);
 
+        // Load or initialize products
         let cachedProducts = await dbHelper.getProducts();
+        console.log('🍔 Products loaded:', cachedProducts.length);
+        
         if (cachedProducts.length === 0) {
+          console.log('💾 Saving initial products...');
           await dbHelper.saveProducts(initialProducts);
           cachedProducts = initialProducts;
         }
         setProducts(cachedProducts);
 
+        // Load table orders
         const tableOrders = await dbHelper.getAllTableOrders();
-        const ordersMap = new Map();
+        console.log('📋 Table orders loaded:', tableOrders.length);
         
+        const ordersMap = new Map();
         tableOrders.forEach(order => {
           ordersMap.set(order.tableId, order);
         });
-        
         setActiveTableOrders(ordersMap);
 
+        // Load booked tables
         const savedBookedTables = await dbHelper.getBookedTables();
         const bookedFromOrders = tableOrders.map(order => order.tableName);
         const allBookedTables = [...new Set([...savedBookedTables, ...bookedFromOrders])];
         
+        console.log('🔒 Booked tables:', allBookedTables.length);
         setBookedTables(new Set(allBookedTables));
         await dbHelper.saveBookedTables(allBookedTables);
+        
+        // Update unsynced count
         await updateUnsyncedCount();
+
+        console.log('✅ App initialization complete');
 
       } catch (error) {
         console.error('❌ Error initializing app:', error);
+        console.error('Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
+        
         notification.error({
           message: 'Initialization Error',
-          description: 'Failed to load data. Please refresh the page.',
+          description: `Failed to load data: ${error.message}. Please refresh the page.`,
+          duration: 0, // Don't auto-close
         });
+        
+        // Try to recover by using initial data
+        console.log('⚠️ Attempting recovery with initial data...');
+        setTables(initialTables);
+        setCategories(initialCategories);
+        setProducts(initialProducts);
       }
     };
 
@@ -217,11 +279,28 @@ const Sale = ({ selectedTable, onClearTable }) => {
   useEffect(() => {
     if (currentSelectedTable?.id) {
       loadTableOrder(currentSelectedTable.id);
+    } else if (selectedOrderCustomer?.id) {
+      loadCustomerOrder(selectedOrderCustomer.id);
+      checkPendingCustomerOrders(selectedOrderCustomer.id);
     } else {
       setCart([]);
       setDiscount('0');
+      setHasPendingCustomerOrders(false);
     }
-  }, [currentSelectedTable?.id]);
+  }, [currentSelectedTable?.id, selectedOrderCustomer?.id]);
+
+  const checkPendingCustomerOrders = async (customerId) => {
+    try {
+      const pendingOrders = await dbHelper.getPendingCustomerOrders();
+      const customerOrders = pendingOrders.filter(
+        order => order.customerId === customerId && order.items.length > 0
+      );
+      setHasPendingCustomerOrders(customerOrders.length > 0);
+    } catch (error) {
+      console.error('Error checking pending orders:', error);
+      setHasPendingCustomerOrders(false);
+    }
+  };
 
   const loadTableOrder = async (tableId) => {
     try {
@@ -230,13 +309,33 @@ const Sale = ({ selectedTable, onClearTable }) => {
       if (tableOrder) {
         setCart(tableOrder.items || []);
         setDiscount(tableOrder.discount?.toString() || '0');
-        message.info(`📋 Table order loaded`, 1);
+        // ❌ REMOVED: message.info
       } else {
         setCart([]);
         setDiscount('0');
       }
     } catch (error) {
       console.error('❌ Error loading table order:', error);
+      setCart([]);
+      setDiscount('0');
+    }
+  };
+
+  const loadCustomerOrder = async (customerId) => {
+    try {
+      const customerOrders = await dbHelper.getCustomerOrders('pending');
+      const customerOrder = customerOrders.find(order => order.customerId === customerId);
+      
+      if (customerOrder) {
+        setCart(customerOrder.items || []);
+        setDiscount(customerOrder.discount?.toString() || '0');
+        // ❌ REMOVED: message.info
+      } else {
+        setCart([]);
+        setDiscount('0');
+      }
+    } catch (error) {
+      console.error('❌ Error loading customer order:', error);
       setCart([]);
       setDiscount('0');
     }
@@ -313,7 +412,6 @@ const Sale = ({ selectedTable, onClearTable }) => {
           selectedOrderCustomer
         );
         
-        // ✅ Book table when first product is added
         if (cart.length === 0) {
           setBookedTables(prev => {
             const newSet = new Set([...prev, currentSelectedTable.name]);
@@ -322,13 +420,26 @@ const Sale = ({ selectedTable, onClearTable }) => {
         }
         
         await loadActiveTableOrders();
-        message.success(`✅ ${quantity} x ${product.name} saved`, 1.5);
+        // ❌ REMOVED: message.success
       } catch (error) {
         console.error('❌ Error saving to table order:', error);
         message.error('Failed to save item');
       }
+    } else if (selectedOrderCustomer) {
+      // ✅ Save to customer order (silently)
+      try {
+        await dbHelper.addToCustomerOrder(
+          selectedOrderCustomer,
+          [{ ...product, quantity }]
+        );
+        // ✅ Refresh pending orders check
+        await checkPendingCustomerOrders(selectedOrderCustomer.id);
+      } catch (error) {
+        console.error('❌ Error saving to customer order:', error);
+        message.error('Failed to save item');
+      }
     } else {
-      message.success(`${quantity} x ${product.name} added`, 1);
+      // Walking customer - just add to cart (no save yet)
     }
     
     setCalculatorDisplay('');
@@ -382,11 +493,8 @@ const Sale = ({ selectedTable, onClearTable }) => {
     message.success(isStarred ? 'Unmarked' : 'Marked as favorite', 1);
   };
 
-  const handleProceedOrder = () => {
-    if (cart.length === 0) {
-      message.warning('Cart is empty!');
-      return;
-    }
+  const handleProceedOrder = async () => {
+    // ✅ Always open modal - let user check if orders exist
     setProceedOrderModalVisible(true);
   };
 
@@ -463,6 +571,7 @@ const Sale = ({ selectedTable, onClearTable }) => {
         const addRequest = store.add({ ...orderData, synced: false });
 
         addRequest.onsuccess = async () => {
+          const localId = addRequest.result;
           const apiResult = await dbHelper.sendOrderToBackend(orderData);
           
           loadingMsg();
@@ -574,19 +683,33 @@ const Sale = ({ selectedTable, onClearTable }) => {
   };
 
   const handleTableCustomer = () => {    
+    handleAutoSaveAndClear();
     setTableBookingModalVisible(true);
   };
 
   const handleBookedTablesList = () => {
+    handleAutoSaveAndClear();
     setTableBookingModalVisible(true);
   };
 
   const handleTableSelect = async (table) => {
     setTableBookingModalVisible(false);
+    
+    // ✅ Clear customer selection when switching to table (silently)
+    if (selectedOrderCustomer && cart.length > 0) {
+      // Save current customer cart first (silently)
+      try {
+        await dbHelper.addToCustomerOrder(selectedOrderCustomer, cart);
+      } catch (error) {
+        console.error('Error saving customer order:', error);
+      }
+    }
+    
     setSelectedOrderCustomer(null);
     setCustomerType('table');
     
-    if (currentSelectedTable && cart.length > 0) {
+    if (currentSelectedTable && cart.length > 0 && currentSelectedTable.id !== table.id) {
+      // Transferring from one table to another
       try {
         await dbHelper.clearTableOrder(currentSelectedTable.id);
         
@@ -594,7 +717,7 @@ const Sale = ({ selectedTable, onClearTable }) => {
           table.id,
           table.name,
           cart.map(item => ({ ...item })),
-          selectedOrderCustomer
+          null
         );
         
         if (parseFloat(discount) > 0) {
@@ -609,16 +732,14 @@ const Sale = ({ selectedTable, onClearTable }) => {
         });
         
         await loadActiveTableOrders();
-        message.success(`Order transferred to ${table.name}`, 2);
+        // ❌ REMOVED: message.success (order transferred)
         
       } catch (error) {
         console.error('❌ Error transferring order:', error);
         message.error('Failed to transfer order');
       }
-    } else {
-      // ✅ Don't book table on selection - only when product is added
-      message.success(`Table ${table.name} selected`, 1.5);
     }
+    // ❌ REMOVED: else message.success (table selected)
     
     setInternalSelectedTable(table);
   };
@@ -646,15 +767,22 @@ const Sale = ({ selectedTable, onClearTable }) => {
     setCustomerType('walking');
   };
 
-  const handleOrderCustomer = () => {
+  const handleOrderCustomer = async () => {
+    // ✅ Auto-save and clear before switching
+    await handleAutoSaveAndClear();
     setCustomerType('order');
     setOrderCustomerModalVisible(true);
-    handleClearTable();
   };
 
-  const handleOrderCustomerSelect = (customer) => {
+  const handleOrderCustomerSelect = async (customer) => {
+    // ✅ When customer is selected, clear current table UI but keep table booked
+    // Silently handle - no messages
+    
     setSelectedOrderCustomer(customer);
-    message.success(`${customer.name} selected!`, 1.5);
+    setInternalSelectedTable(null); // Clear table UI
+    setCart([]); // Clear cart for customer
+    setDiscount('0');
+    setCustomerType('order');
   };
 
   const desktopColumns = [
@@ -928,7 +1056,8 @@ const Sale = ({ selectedTable, onClearTable }) => {
           )}
           
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {currentSelectedTable && (
+            {/* Show either table OR customer selection, not both */}
+            {currentSelectedTable && !selectedOrderCustomer && (
               <Tag 
                 color="success" 
                 closable
@@ -954,6 +1083,8 @@ const Sale = ({ selectedTable, onClearTable }) => {
                 onClose={() => {
                   setSelectedOrderCustomer(null);
                   setCustomerType('walking');
+                  setCart([]);
+                  setDiscount('0');
                 }}
                 style={{
                   fontSize: 14,
@@ -973,7 +1104,10 @@ const Sale = ({ selectedTable, onClearTable }) => {
             <Button
               type="default"
               icon={<AppstoreOutlined />}
-              onClick={() => setRotiModalVisible(true)}
+              onClick={async () => {
+                await handleAutoSaveAndClear();
+                setRotiModalVisible(true);
+              }}
               style={{
                 height: 40,
                 fontSize: 13,
@@ -988,7 +1122,10 @@ const Sale = ({ selectedTable, onClearTable }) => {
             <Button
               type="default"
               icon={<DollarOutlined />}
-              onClick={() => setPaymentModalVisible(true)}
+              onClick={async () => {
+                await handleAutoSaveAndClear();
+                setPaymentModalVisible(true);
+              }}
               style={{
                 height: 40,
                 fontSize: 13,
@@ -1004,7 +1141,10 @@ const Sale = ({ selectedTable, onClearTable }) => {
             <Button
               type="default"
               icon={<DollarOutlined />}
-              onClick={() => setExpenseModalVisible(true)}
+              onClick={async () => {
+                await handleAutoSaveAndClear();
+                setExpenseModalVisible(true);
+              }}
               style={{
                 height: 40,
                 fontSize: 13,
@@ -1020,7 +1160,10 @@ const Sale = ({ selectedTable, onClearTable }) => {
             <Button
               type="default"
               icon={<RollbackOutlined />}
-              onClick={handleReturnOrder}
+              onClick={async () => {
+                await handleAutoSaveAndClear();
+                handleReturnOrder();
+              }}
               style={{
                 height: 40,
                 fontSize: 13,
@@ -1036,8 +1179,10 @@ const Sale = ({ selectedTable, onClearTable }) => {
             <Button
               type="primary"
               icon={<CheckCircleOutlined />}
-              onClick={handleProceedOrder}
-              disabled={cart.length === 0}
+              onClick={async () => {
+                await handleAutoSaveAndClear();
+                handleProceedOrder();
+              }}
               style={{
                 height: 40,
                 fontSize: 13,
@@ -1142,7 +1287,10 @@ const Sale = ({ selectedTable, onClearTable }) => {
                           type={selectedCategory === category.id ? 'primary' : 'default'}
                           block
                           size="large"
-                          onClick={() => setSelectedCategory(category.id)}
+                          onClick={async () => {
+                            await handleAutoSaveAndClear();
+                            setSelectedCategory(category.id);
+                          }}
                           style={{
                             height: 50,
                             fontSize: 12,
@@ -1172,10 +1320,16 @@ const Sale = ({ selectedTable, onClearTable }) => {
                         fontWeight: 600,
                         whiteSpace: "nowrap"
                       }}
-                      onClick={() => {
+                      onClick={async () => {
+                        // ✅ Auto-save and clear before switching
+                        await handleAutoSaveAndClear();
+                        
                         setCustomerType('walking');
                         setSelectedOrderCustomer(null);
-                        handleClearTable();
+                        setInternalSelectedTable(null);
+                        setCart([]);
+                        setDiscount('0');
+                        setCalculatorDisplay('');
                       }}
                     >
                       Walking Customer
@@ -1194,7 +1348,10 @@ const Sale = ({ selectedTable, onClearTable }) => {
                         fontWeight: 600,
                         whiteSpace: "nowrap"
                       }}
-                      onClick={handleOrderCustomer}
+                      onClick={async () => {
+                        await handleAutoSaveAndClear();
+                        handleOrderCustomer();
+                      }}
                     >
                       {selectedOrderCustomer ? selectedOrderCustomer.name : 'Order Customer'}
                     </Button>
@@ -1219,28 +1376,31 @@ const Sale = ({ selectedTable, onClearTable }) => {
                             : undefined,
                         whiteSpace: "nowrap"
                       }}
-                      onClick={() => {
+                      onClick={async () => {
+                        await handleAutoSaveAndClear();
                         handleTableCustomer();
                         setIsBooked(false);
                       }}
                     >
-                      {currentSelectedTable ? currentSelectedTable.name : 'All Tables'}
+                      All Tables
                     </Button>
                   </Col>
 
                   <Col flex="1">
-                    <Badge count={bookedTables.size}>
+                    {/* ✅ FIX: Use the memoized count value */}
+                    <Badge count={bookedTablesCount} showZero={false}>
                       <Button
                         block
                         icon={<UnorderedListOutlined />}
-                        disabled={bookedTables.size === 0}
+                        disabled={bookedTablesCount === 0}
                         style={{
                           height: 42,
                           fontSize: 12,
                           fontWeight: 600,
                           whiteSpace: "nowrap"
                         }}
-                        onClick={() => {
+                        onClick={async () => {
+                          await handleAutoSaveAndClear();
                           handleBookedTablesList();
                           setIsBooked(true);
                         }}
@@ -1264,7 +1424,8 @@ const Sale = ({ selectedTable, onClearTable }) => {
                         color: currentSelectedTable ? '#fff' : undefined,
                         whiteSpace: "nowrap"
                       }}
-                      onClick={() => {
+                      onClick={async () => {
+                        await handleAutoSaveAndClear();
                         setTableBookingModalVisible(true);
                         setIsBooked(false);
                       }}
@@ -1353,15 +1514,13 @@ const Sale = ({ selectedTable, onClearTable }) => {
       <ProceedOrderModal
         visible={proceedOrderModalVisible}
         onClose={() => setProceedOrderModalVisible(false)}
-        cart={cart}
-        subtotal={subtotal}
-        discount={discountAmount}
-        total={total}
-        currentSelectedTable={currentSelectedTable}
-        selectedOrderCustomer={selectedOrderCustomer}
         onConfirm={() => {
           handleSaveOrder();
           setProceedOrderModalVisible(false);
+        }}
+        onOrderCompleted={async () => {
+          // Refresh UI after completing orders
+          await loadActiveTableOrders();
         }}
       />
 

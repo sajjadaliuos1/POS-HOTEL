@@ -2,7 +2,7 @@
 // Tables, Categories, Products caching + State persistence + Customer Orders
 
 const DB_NAME = 'RestaurantPOS_DB';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const ORDERS_STORE = 'orders';
 const TABLE_ORDERS_STORE = 'tableOrders';
 const CUSTOMER_ORDERS_STORE = 'customerOrders';
@@ -18,75 +18,164 @@ class IndexedDBHelper {
 
   async initDB() {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      try {
+        console.log('🔄 Opening IndexedDB:', DB_NAME, 'Version:', DB_VERSION);
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-      request.onerror = () => {
-        console.error('❌ IndexedDB error:', request.error);
-        reject(request.error);
-      };
+        request.onerror = (event) => {
+          console.error('❌ IndexedDB error:', request.error);
+          console.error('Error event:', event);
+          reject(request.error);
+        };
 
-      request.onsuccess = () => {
-        this.db = request.result;
-        console.log('✅ IndexedDB initialized successfully');
-        resolve(this.db);
-      };
+        request.onsuccess = (event) => {
+          this.db = request.result;
+          console.log('✅ IndexedDB initialized successfully');
+          console.log('Available stores:', Array.from(this.db.objectStoreNames));
+          resolve(this.db);
+        };
 
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
+        request.onupgradeneeded = (event) => {
+          console.log('🔧 Upgrading database from version', event.oldVersion, 'to', event.newVersion);
+          const db = event.target.result;
 
-        if (!db.objectStoreNames.contains(ORDERS_STORE)) {
-          const ordersStore = db.createObjectStore(ORDERS_STORE, { 
-            keyPath: 'id', 
-            autoIncrement: true 
-          });
-          ordersStore.createIndex('timestamp', 'timestamp', { unique: false });
-          ordersStore.createIndex('synced', 'synced', { unique: false });
-        }
+          // Create ORDERS store
+          if (!db.objectStoreNames.contains(ORDERS_STORE)) {
+            console.log('Creating store:', ORDERS_STORE);
+            const ordersStore = db.createObjectStore(ORDERS_STORE, { 
+              keyPath: 'id', 
+              autoIncrement: true 
+            });
+            ordersStore.createIndex('timestamp', 'timestamp', { unique: false });
+            ordersStore.createIndex('synced', 'synced', { unique: false });
+          }
 
-        if (!db.objectStoreNames.contains(TABLE_ORDERS_STORE)) {
-          const tableOrdersStore = db.createObjectStore(TABLE_ORDERS_STORE, { 
-            keyPath: 'tableId'
-          });
-          tableOrdersStore.createIndex('lastUpdated', 'lastUpdated', { unique: false });
-        }
+          // Create TABLE_ORDERS store
+          if (!db.objectStoreNames.contains(TABLE_ORDERS_STORE)) {
+            console.log('Creating store:', TABLE_ORDERS_STORE);
+            const tableOrdersStore = db.createObjectStore(TABLE_ORDERS_STORE, { 
+              keyPath: 'tableId'
+            });
+            tableOrdersStore.createIndex('lastUpdated', 'lastUpdated', { unique: false });
+          }
 
-        if (!db.objectStoreNames.contains(CUSTOMER_ORDERS_STORE)) {
-          const customerOrdersStore = db.createObjectStore(CUSTOMER_ORDERS_STORE, { 
-            keyPath: 'id',
-            autoIncrement: true
-          });
-          customerOrdersStore.createIndex('customerId', 'customerId', { unique: false });
-          customerOrdersStore.createIndex('status', 'status', { unique: false });
-        }
+          // Create CUSTOMER_ORDERS store
+          if (!db.objectStoreNames.contains(CUSTOMER_ORDERS_STORE)) {
+            console.log('Creating store:', CUSTOMER_ORDERS_STORE);
+            const customerOrdersStore = db.createObjectStore(CUSTOMER_ORDERS_STORE, { 
+              keyPath: 'id',
+              autoIncrement: true
+            });
+            customerOrdersStore.createIndex('customerId', 'customerId', { unique: false });
+            customerOrdersStore.createIndex('status', 'status', { unique: false });
+          }
 
-        if (!db.objectStoreNames.contains(TABLES_STORE)) {
-          const tablesStore = db.createObjectStore(TABLES_STORE, { 
-            keyPath: 'id'
-          });
-          tablesStore.createIndex('orderBy', 'orderBy', { unique: false });
-        }
+          // Create TABLES store
+          if (!db.objectStoreNames.contains(TABLES_STORE)) {
+            console.log('Creating store:', TABLES_STORE);
+            const tablesStore = db.createObjectStore(TABLES_STORE, { 
+              keyPath: 'id'
+            });
+            tablesStore.createIndex('orderBy', 'orderBy', { unique: false });
+          }
 
-        if (!db.objectStoreNames.contains(CATEGORIES_STORE)) {
-          db.createObjectStore(CATEGORIES_STORE, { keyPath: 'id' });
-        }
+          // Create CATEGORIES store
+          if (!db.objectStoreNames.contains(CATEGORIES_STORE)) {
+            console.log('Creating store:', CATEGORIES_STORE);
+            db.createObjectStore(CATEGORIES_STORE, { keyPath: 'id' });
+          }
 
-        if (!db.objectStoreNames.contains(PRODUCTS_STORE)) {
-          const productsStore = db.createObjectStore(PRODUCTS_STORE, { 
-            keyPath: 'id'
-          });
-          productsStore.createIndex('category', 'category', { unique: false });
-        }
+          // Create PRODUCTS store
+          if (!db.objectStoreNames.contains(PRODUCTS_STORE)) {
+            console.log('Creating store:', PRODUCTS_STORE);
+            const productsStore = db.createObjectStore(PRODUCTS_STORE, { 
+              keyPath: 'id'
+            });
+            productsStore.createIndex('category', 'category', { unique: false });
+          }
 
-        if (!db.objectStoreNames.contains(APP_STATE_STORE)) {
-          db.createObjectStore(APP_STATE_STORE, { keyPath: 'key' });
-        }
-      };
+          // Create APP_STATE store
+          if (!db.objectStoreNames.contains(APP_STATE_STORE)) {
+            console.log('Creating store:', APP_STATE_STORE);
+            db.createObjectStore(APP_STATE_STORE, { keyPath: 'key' });
+          }
+
+          console.log('✅ Database upgrade complete');
+        };
+
+        request.onblocked = (event) => {
+          console.warn('⚠️ Database upgrade blocked. Please close other tabs.');
+          alert('Please close other tabs with this application open to continue.');
+        };
+
+      } catch (error) {
+        console.error('❌ Error in initDB:', error);
+        reject(error);
+      }
     });
   }
 
   // ==========================================
   // CUSTOMER ORDERS MANAGEMENT
   // ==========================================
+
+  async addToCustomerOrder(customer, newItems) {
+    if (!this.db) await this.initDB();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([CUSTOMER_ORDERS_STORE], 'readwrite');
+      const store = transaction.objectStore(CUSTOMER_ORDERS_STORE);
+      const index = store.index('customerId');
+      const request = index.getAll(customer.id);
+
+      request.onsuccess = () => {
+        const existingOrders = request.result;
+        const pendingOrder = existingOrders.find(order => order.status === 'pending');
+
+        if (pendingOrder) {
+          // Add items to existing pending order
+          const mergedItems = this.mergeItems(pendingOrder.items, newItems);
+          pendingOrder.items = mergedItems;
+          pendingOrder.lastUpdated = new Date().toISOString();
+          
+          this.calculateCustomerOrderTotals(pendingOrder);
+          
+          const updateRequest = store.put(pendingOrder);
+          updateRequest.onsuccess = () => resolve({ success: true, order: pendingOrder, isNew: false });
+          updateRequest.onerror = () => reject(updateRequest.error);
+        } else {
+          // Create new order
+          const newOrder = {
+            customerId: customer.id,
+            customerName: customer.name,
+            customerPhone: customer.phone,
+            customerAddress: customer.address,
+            items: newItems.map(item => ({ ...item, status: 'pending' })),
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+            lastUpdated: new Date().toISOString(),
+          };
+          
+          this.calculateCustomerOrderTotals(newOrder);
+          
+          const addRequest = store.add(newOrder);
+          addRequest.onsuccess = () => {
+            const orderId = addRequest.result;
+            resolve({ success: true, orderId, order: { ...newOrder, id: orderId }, isNew: true });
+          };
+          addRequest.onerror = () => reject(addRequest.error);
+        }
+      };
+
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  calculateCustomerOrderTotals(order) {
+    order.subtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    order.discount = order.discount || 0;
+    order.total = order.subtotal - order.discount;
+  }
 
   async saveCustomerOrder(customer, items, subtotal, discount, total) {
     if (!this.db) await this.initDB();
@@ -268,15 +357,36 @@ class IndexedDBHelper {
   }
 
   async getTables() {
-    if (!this.db) await this.initDB();
+    if (!this.db) {
+      console.log('Database not initialized, initializing...');
+      await this.initDB();
+    }
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([TABLES_STORE], 'readonly');
-      const store = transaction.objectStore(TABLES_STORE);
-      const request = store.getAll();
+      try {
+        const transaction = this.db.transaction([TABLES_STORE], 'readonly');
+        const store = transaction.objectStore(TABLES_STORE);
+        const request = store.getAll();
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const result = request.result || [];
+          console.log('✅ Retrieved tables:', result.length);
+          resolve(result);
+        };
+        
+        request.onerror = () => {
+          console.error('❌ Error getting tables:', request.error);
+          reject(request.error);
+        };
+        
+        transaction.onerror = () => {
+          console.error('❌ Transaction error:', transaction.error);
+          reject(transaction.error);
+        };
+      } catch (error) {
+        console.error('❌ Error in getTables:', error);
+        reject(error);
+      }
     });
   }
 
@@ -313,15 +423,36 @@ class IndexedDBHelper {
   }
 
   async getCategories() {
-    if (!this.db) await this.initDB();
+    if (!this.db) {
+      console.log('Database not initialized, initializing...');
+      await this.initDB();
+    }
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([CATEGORIES_STORE], 'readonly');
-      const store = transaction.objectStore(CATEGORIES_STORE);
-      const request = store.getAll();
+      try {
+        const transaction = this.db.transaction([CATEGORIES_STORE], 'readonly');
+        const store = transaction.objectStore(CATEGORIES_STORE);
+        const request = store.getAll();
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const result = request.result || [];
+          console.log('✅ Retrieved categories:', result.length);
+          resolve(result);
+        };
+        
+        request.onerror = () => {
+          console.error('❌ Error getting categories:', request.error);
+          reject(request.error);
+        };
+        
+        transaction.onerror = () => {
+          console.error('❌ Transaction error:', transaction.error);
+          reject(transaction.error);
+        };
+      } catch (error) {
+        console.error('❌ Error in getCategories:', error);
+        reject(error);
+      }
     });
   }
 
@@ -345,15 +476,36 @@ class IndexedDBHelper {
   }
 
   async getProducts() {
-    if (!this.db) await this.initDB();
+    if (!this.db) {
+      console.log('Database not initialized, initializing...');
+      await this.initDB();
+    }
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([PRODUCTS_STORE], 'readonly');
-      const store = transaction.objectStore(PRODUCTS_STORE);
-      const request = store.getAll();
+      try {
+        const transaction = this.db.transaction([PRODUCTS_STORE], 'readonly');
+        const store = transaction.objectStore(PRODUCTS_STORE);
+        const request = store.getAll();
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const result = request.result || [];
+          console.log('✅ Retrieved products:', result.length);
+          resolve(result);
+        };
+        
+        request.onerror = () => {
+          console.error('❌ Error getting products:', request.error);
+          reject(request.error);
+        };
+        
+        transaction.onerror = () => {
+          console.error('❌ Transaction error:', transaction.error);
+          reject(transaction.error);
+        };
+      } catch (error) {
+        console.error('❌ Error in getProducts:', error);
+        reject(error);
+      }
     });
   }
 
