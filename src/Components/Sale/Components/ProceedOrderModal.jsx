@@ -5,6 +5,7 @@ import {
   Space,
   Typography,
   Button,
+  Tag,
   message,
   notification,
 } from 'antd';
@@ -14,19 +15,16 @@ import {
 } from '@ant-design/icons';
 import dbHelper from '../../Helpers/indexedDBHelper';
 
-
 const { Text } = Typography;
 
 const ProceedOrderModal = ({
   visible,
   onClose,
-  onOrderCompleted, // Add callback to refresh parent state
+  onOrderCompleted,
 }) => {
   const [allCustomerOrders, setAllCustomerOrders] = useState([]);
-  const [itemStatuses, setItemStatuses] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // Load ALL customer orders when modal opens (not filtered by customer)
   useEffect(() => {
     if (visible) {
       loadAllCustomerOrders();
@@ -37,19 +35,7 @@ const ProceedOrderModal = ({
     try {
       setLoading(true);
       const pendingOrders = await dbHelper.getPendingCustomerOrders();
-      
-      // Don't filter - show ALL pending orders
       setAllCustomerOrders(pendingOrders);
-      
-      // Initialize all items as pending
-      const initialStatuses = {};
-      pendingOrders.forEach(order => {
-        order.items.forEach(item => {
-          initialStatuses[`${order.id}-${item.id}`] = item.status || 'pending';
-        });
-      });
-      setItemStatuses(initialStatuses);
-      
     } catch (error) {
       console.error('❌ Error loading customer orders:', error);
       message.error('Failed to load orders');
@@ -58,160 +44,117 @@ const ProceedOrderModal = ({
     }
   };
 
-  // Toggle status for an item
-  const toggleStatus = async (orderId, item) => {
-    const key = `${orderId}-${item.id}`;
-    const newStatus = itemStatuses[key] === 'proceed' ? 'pending' : 'proceed';
-    
-    setItemStatuses(prev => ({
-      ...prev,
-      [key]: newStatus
-    }));
+  // Complete a single customer's order
+  const handleProceedCustomer = async (order) => {
+    const loadingMsg = message.loading('Processing...', 0);
 
     try {
-      await dbHelper.updateCustomerOrderItemStatus(orderId, item.id, newStatus);
-      // ❌ REMOVED: message.success
-    } catch (error) {
-      console.error('❌ Error updating item status:', error);
-      message.error('Failed to update status');
-    }
-  };
+      // Mark all items as proceed
+      for (const item of order.items) {
+        await dbHelper.updateCustomerOrderItemStatus(order.id, item.id, 'proceed');
+      }
 
-  // Handle completing the order
-  const handleCompleteOrder = async () => {
-    if (allCustomerOrders.length === 0) {
-      message.warning('No orders to complete');
-      return;
-    }
+      const result = await dbHelper.processProceededItems(order.id);
 
-    const loadingMsg = message.loading('Processing orders...', 0);
+      if (result.success && result.proceededItems.length > 0) {
+        const finalOrder = {
+          tableId: `CUSTOMER-${order.customerId}-${Date.now()}`,
+          tableName: `Customer: ${order.customerName}`,
+          items: result.proceededItems,
+          subtotal: result.proceededTotal,
+          discount: 0,
+          total: result.proceededTotal,
+          customerType: 'order',
+          paymentMethod: 'cash',
+          isStarred: false,
+          customerInfo: {
+            id: order.customerId,
+            name: order.customerName,
+            phone: order.customerPhone,
+          },
+          createdAt: new Date().toISOString(),
+          lastUpdated: new Date().toISOString(),
+          synced: false,
+        };
 
-    try {
-      // Process each order
-      for (const order of allCustomerOrders) {
-        const result = await dbHelper.processProceededItems(order.id);
-        
-        if (result.success && result.proceededItems.length > 0) {
-          // Save the proceeded order to final orders table first (IndexedDB)
-          const finalOrder = {
-            tableId: `CUSTOMER-${order.customerId}-${Date.now()}`,
-            tableName: `Customer: ${order.customerName}`,
-            items: result.proceededItems,
-            subtotal: result.proceededTotal,
-            discount: 0,
-            total: result.proceededTotal,
-            customerType: 'order',
-            paymentMethod: 'cash',
-            isStarred: false,
-            customerInfo: {
-              id: order.customerId,
-              name: order.customerName,
-              phone: order.customerPhone
-            },
-            createdAt: new Date().toISOString(),
-            lastUpdated: new Date().toISOString(),
-            synced: false,
-          };
+        if (!dbHelper.db) await dbHelper.initDB();
 
-          // ✅ STEP 1: Save to IndexedDB first
-          if (!dbHelper.db) {
-            await dbHelper.initDB();
-          }
+        const transaction = dbHelper.db.transaction(['orders'], 'readwrite');
+        const store = transaction.objectStore('orders');
 
-          const transaction = dbHelper.db.transaction(['orders'], 'readwrite');
-          const store = transaction.objectStore('orders');
-          
-          await new Promise((resolve, reject) => {
-            const addRequest = store.add(finalOrder);
-            
-            addRequest.onsuccess = async () => {
-              const localId = addRequest.result;
-              console.log('✅ Order saved to IndexedDB:', localId);
-              
-              // ✅ STEP 2: Try to sync to backend
-              try {
-                const apiResult = await dbHelper.sendOrderToBackend({
-                  ...finalOrder,
-                  localId,
-                });
-                
-                if (apiResult.success) {
-                  // Mark as synced in IndexedDB
-                  const getRequest = store.get(localId);
-                  
-                  getRequest.onsuccess = () => {
-                    const savedOrder = getRequest.result;
-                    savedOrder.synced = true;
-                    savedOrder.syncedAt = new Date().toISOString();
-                    savedOrder.backendId = apiResult.data?.id || null;
-                    store.put(savedOrder);
-                    
-                    console.log('✅ Order synced to backend:', apiResult.data?.id);
-                  };
-                }
-              } catch (apiError) {
-                console.warn('⚠️ Backend sync failed, order saved locally:', apiError);
+        await new Promise((resolve, reject) => {
+          const addRequest = store.add(finalOrder);
+          addRequest.onsuccess = async () => {
+            const localId = addRequest.result;
+            try {
+              const apiResult = await dbHelper.sendOrderToBackend({ ...finalOrder, localId });
+              if (apiResult.success) {
+                const getRequest = store.get(localId);
+                getRequest.onsuccess = () => {
+                  const saved = getRequest.result;
+                  saved.synced = true;
+                  saved.syncedAt = new Date().toISOString();
+                  saved.backendId = apiResult.data?.id || null;
+                  store.put(saved);
+                };
               }
-              
-              resolve(localId);
-            };
-            
-            addRequest.onerror = () => reject(addRequest.error);
-          });
+            } catch (e) {
+              console.warn('⚠️ Backend sync failed:', e);
+            }
+            resolve(localId);
+          };
+          addRequest.onerror = () => reject(addRequest.error);
+        });
 
-          // Delete the customer order after processing
-          await dbHelper.deleteCustomerOrder(order.id);
-        }
+        await dbHelper.deleteCustomerOrder(order.id);
       }
 
       loadingMsg();
-      
+
       notification.success({
-        message: '✅ Orders Completed!',
-        description: 'All proceeded items have been saved to database.',
-        duration: 3,
+        message: '✅ Order Proceeded!',
+        description: `${order.customerName} ka order complete ho gaya.`,
+        duration: 2,
       });
 
-      // Reload orders after completion
-      if (onOrderCompleted) {
-        onOrderCompleted();
-      }
+      // Reload orders list
+      await loadAllCustomerOrders();
 
-      onClose();
-      
+      if (onOrderCompleted) onOrderCompleted();
+
+      // Close modal if no more orders
+      if (allCustomerOrders.length <= 1) onClose();
+
     } catch (error) {
       loadingMsg();
-      console.error('❌ Error completing orders:', error);
+      console.error('❌ Error:', error);
       notification.error({
-        message: 'Order Failed',
-        description: 'Could not complete the orders. Please try again.',
+        message: 'Failed',
+        description: 'Order proceed nahi hua. Please retry.',
         duration: 3,
       });
     }
   };
 
-  // Prepare data for table
-  const tableData = [];
-  allCustomerOrders.forEach(order => {
-    order.items.forEach(item => {
-      const key = `${order.id}-${item.id}`;
-      tableData.push({
-        ...item,
-        orderId: order.id,
-        customerName: order.customerName,
-        customerPhone: order.customerPhone,
-        key,
-        status: itemStatuses[key] || item.status || 'pending',
-      });
-    });
+  // Group orders by customer — one row per customer
+  const tableData = allCustomerOrders.map((order) => {
+    const itemsTotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return {
+      key: order.id,
+      orderId: order.id,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      items: order.items,
+      itemsTotal,
+      order, // full order object for proceed handler
+    };
   });
 
-  // Columns for order items table
   const columns = [
     {
       title: '#',
       key: 'index',
-      width: 50,
+      width: 45,
       align: 'center',
       render: (_, __, index) => index + 1,
     },
@@ -219,7 +162,8 @@ const ProceedOrderModal = ({
       title: 'Customer',
       dataIndex: 'customerName',
       key: 'customer',
-      width: 150,
+      width: 140,
+      render: (name) => <Text strong>{name}</Text>,
     },
     {
       title: 'Phone',
@@ -228,65 +172,52 @@ const ProceedOrderModal = ({
       width: 130,
     },
     {
-      title: 'Item',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: 'Qty',
-      dataIndex: 'quantity',
-      key: 'quantity',
-      align: 'center',
-      width: 80,
-    },
-    {
-      title: 'Price',
-      dataIndex: 'price',
-      key: 'price',
-      width: 100,
-      render: (price) => `Rs. ${price}`,
+      title: 'Items',
+      key: 'items',
+      render: (_, record) => (
+        <Space direction="vertical" size={3}>
+          {record.items.map((item, idx) => (
+            <Text key={idx} style={{ fontSize: 12 }}>
+              • {item.name} × {item.quantity}{' '}
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                (Rs. {item.price * item.quantity})
+              </Text>
+            </Text>
+          ))}
+        </Space>
+      ),
     },
     {
       title: 'Total',
       key: 'total',
-      width: 100,
-      render: (_, record) => `Rs. ${record.price * record.quantity}`,
+      width: 110,
+      align: 'right',
+      render: (_, record) => (
+        <Text strong style={{ color: '#52c41a', fontSize: 14 }}>
+          Rs. {record.itemsTotal}
+        </Text>
+      ),
     },
     {
-      title: 'Status',
-      key: 'status',
+      title: 'Action',
+      key: 'action',
       width: 120,
       align: 'center',
-      render: (_, record) => {
-        const status = record.status;
-        return (
-          <Button
-            size="small"
-            icon={status === 'proceed' ? <CheckCircleOutlined /> : <ClockCircleOutlined />}
-            type={status === 'proceed' ? 'primary' : 'default'}
-            onClick={async () => {
-              // Toggle status
-              await toggleStatus(record.orderId, record);
-              
-              // If changed to proceed, auto-complete the order
-              if (status === 'pending') {
-                // Wait a bit for state to update
-                setTimeout(async () => {
-                  await handleCompleteOrder();
-                }, 300);
-              }
-            }}
-            style={{
-              background: status === 'proceed' ? '#52c41a' : '#faad14',
-              borderColor: status === 'proceed' ? '#52c41a' : '#faad14',
-              color: 'white',
-              fontWeight: 'bold',
-            }}
-          >
-            {status === 'proceed' ? 'Proceed' : 'Pending'}
-          </Button>
-        );
-      },
+      render: (_, record) => (
+        <Button
+          size="middle"
+          icon={<CheckCircleOutlined />}
+          onClick={() => handleProceedCustomer(record.order)}
+          style={{
+            background: '#52c41a',
+            borderColor: '#52c41a',
+            color: 'white',
+            fontWeight: 'bold',
+          }}
+        >
+          Proceed
+        </Button>
+      ),
     },
   ];
 
@@ -294,40 +225,38 @@ const ProceedOrderModal = ({
     <Modal
       title={
         <Text strong style={{ fontSize: 18 }}>
-          Customer Orders - All Pending Orders
+          Customer Orders — Pending
         </Text>
       }
       open={visible}
       onCancel={onClose}
       footer={null}
-      width={1000}
+      width={900}
       style={{ top: 20 }}
-      bodyStyle={{ 
+      bodyStyle={{
         padding: 16,
         height: '70vh',
-        overflowY: 'auto'
+        overflowY: 'auto',
       }}
       maskClosable={true}
     >
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
-        {tableData.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40 }}>
-            <Text type="secondary">
-              No pending customer orders found
-            </Text>
-          </div>
-        ) : (
-          <Table
-            dataSource={tableData}
-            columns={columns}
-            pagination={false}
-            size="small"
-            bordered
-            loading={loading}
-            scroll={{ y: 'calc(70vh - 120px)' }}
-          />
-        )}
-      </Space>
+      {tableData.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 60 }}>
+          <Text type="secondary" style={{ fontSize: 15 }}>
+            No pending customer orders found
+          </Text>
+        </div>
+      ) : (
+        <Table
+          dataSource={tableData}
+          columns={columns}
+          pagination={false}
+          size="small"
+          bordered
+          loading={loading}
+          scroll={{ y: 'calc(70vh - 120px)' }}
+        />
+      )}
     </Modal>
   );
 };

@@ -33,6 +33,7 @@ import {
   AppstoreOutlined,
   DatabaseOutlined,
   ClearOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 
 import TableBooking from './Components/TablebookingModal.jsx';
@@ -109,7 +110,7 @@ const Sale = ({ selectedTable, onClearTable }) => {
   const [products, setProducts] = useState([]);
   const [hasPendingCustomerOrders, setHasPendingCustomerOrders] = useState(false);
   const [autoSaveTimer, setAutoSaveTimer] = useState(null);
-
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
   const {
     token: { borderRadiusLG },
   } = theme.useToken();
@@ -266,7 +267,14 @@ const Sale = ({ selectedTable, onClearTable }) => {
       console.error('❌ Error loading table orders:', error);
     }
   };
-
+const handleEmployeeSelect = (employee) => {
+  setSelectedEmployee(employee);
+  setSelectedOrderCustomer(null);   // customer clear
+  setInternalSelectedTable(null);   // table clear
+  setCustomerType('walking');
+  setCart([]);
+  setDiscount('0');
+};
   const updateUnsyncedCount = async () => {
     try {
       const unsyncedOrders = await dbHelper.getUnsyncedOrders();
@@ -694,7 +702,7 @@ const Sale = ({ selectedTable, onClearTable }) => {
 
   const handleTableSelect = async (table) => {
     setTableBookingModalVisible(false);
-    
+      setSelectedEmployee(null);          // employee clear — YEH ADD KARO
     // ✅ Clear customer selection when switching to table (silently)
     if (selectedOrderCustomer && cart.length > 0) {
       // Save current customer cart first (silently)
@@ -775,15 +783,13 @@ const Sale = ({ selectedTable, onClearTable }) => {
   };
 
   const handleOrderCustomerSelect = async (customer) => {
-    // ✅ When customer is selected, clear current table UI but keep table booked
-    // Silently handle - no messages
-    
-    setSelectedOrderCustomer(customer);
-    setInternalSelectedTable(null); // Clear table UI
-    setCart([]); // Clear cart for customer
-    setDiscount('0');
-    setCustomerType('order');
-  };
+  setSelectedEmployee(null);          // employee clear
+  setSelectedOrderCustomer(customer);
+  setInternalSelectedTable(null);
+  setCart([]);
+  setDiscount('0');
+  setCustomerType('order');
+};
 
   const desktopColumns = [
     {
@@ -1011,190 +1017,193 @@ const Sale = ({ selectedTable, onClearTable }) => {
         overflow: 'hidden'
       }}>
         <div style={{ 
-          minHeight: 40,
-          minWidth: '100%',
-          marginBottom: 10, 
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-        }}>
-          
-          {unsyncedCount > 0 && (
-            <Badge count={unsyncedCount} showZero={false}>
-              <Button
-                size="small"
-                icon={<DatabaseOutlined />}
-                onClick={handleRetrySync}
-                danger
-                style={{ fontSize: 11 }}
-              >
-                Retry Sync
-              </Button>
-            </Badge>
-          )}
+  minHeight: 40,
+  minWidth: '100%',
+  marginBottom: 10, 
+  flexShrink: 0,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+}}>
+  
+  {unsyncedCount > 0 && (
+    <Badge count={unsyncedCount} showZero={false}>
+      <Button
+        size="small"
+        icon={<DatabaseOutlined />}
+        onClick={handleRetrySync}
+        danger
+        style={{ fontSize: 11 }}
+      >
+        Retry Sync
+      </Button>
+    </Badge>
+  )}
 
-          <Button
-            size="small"
-            icon={<ClearOutlined />}
-            onClick={handleClearDatabase}
-            danger
-            style={{ 
-              fontSize: 11,
-              background: '#ff4d4f',
-              borderColor: '#ff4d4f',
-              color: 'white',
-            }}
+  <Button
+    size="small"
+    icon={<ClearOutlined />}
+    onClick={handleClearDatabase}
+    danger
+    style={{ 
+      fontSize: 11,
+      background: '#ff4d4f',
+      borderColor: '#ff4d4f',
+      color: 'white',
+    }}
+  >
+    Clear DB
+  </Button>
+
+  
+  
+  {/* ✅ ONLY ONE TAG AT A TIME — last selected wins: Employee > Customer > Table */}
+  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+    {(() => {
+      if (selectedEmployee) {
+        return (
+          <Tag
+            color="blue"
+            closable
+            onClose={() => setSelectedEmployee(null)}
+            style={{ fontSize: 14, padding: '6px 12px', margin: 0, display: 'inline-flex', alignItems: 'center' }}
           >
-            Clear DB
-          </Button>
+            <TeamOutlined style={{ marginRight: 6 }} />
+            Employee: {selectedEmployee.name}
+          </Tag>
+        );
+      }
+      if (selectedOrderCustomer) {
+        return (
+          <Tag
+            color="warning"
+            closable
+            onClose={() => {
+              setSelectedOrderCustomer(null);
+              setCustomerType('walking');
+              setCart([]);
+              setDiscount('0');
+            }}
+            style={{ fontSize: 14, padding: '6px 12px', margin: 0, display: 'inline-flex', alignItems: 'center' }}
+          >
+            <ShoppingOutlined style={{ marginRight: 6 }} />
+            Order for: {selectedOrderCustomer.name}
+          </Tag>
+        );
+      }
+      if (currentSelectedTable) {
+        return (
+          <Tag
+            color="success"
+            closable
+            onClose={handleClearTable}
+            style={{ fontSize: 14, padding: '6px 12px', margin: 0, display: 'inline-flex', alignItems: 'center' }}
+          >
+            <TableOutlined style={{ marginRight: 6 }} />
+            {currentSelectedTable.name} ({currentSelectedTable.capacity} seats)
+            {activeTableOrders.has(currentSelectedTable.id) && ' 📋'}
+          </Tag>
+        );
+      }
+      return null;
+    })()}
+  </div>
 
-          {activeTableOrders.size > 0 && (
-            <Tag color="processing" style={{ fontSize: 12 }}>
-              {activeTableOrders.size} Active Orders
-            </Tag>
-          )}
-          
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {/* Show either table OR customer selection, not both */}
-            {currentSelectedTable && !selectedOrderCustomer && (
-              <Tag 
-                color="success" 
-                closable
-                onClose={handleClearTable}
-                style={{
-                  fontSize: 14,
-                  padding: '6px 12px',
-                  margin: 0,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                }}
-              >
-                <TableOutlined style={{ marginRight: 6 }} />
-                {currentSelectedTable.name} ({currentSelectedTable.capacity} seats)
-                {activeTableOrders.has(currentSelectedTable.id) && ' 📋'}
-              </Tag>
-            )}
+  <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+    <Button
+      type="default"
+      icon={<AppstoreOutlined />}
+      onClick={async () => {
+        await handleAutoSaveAndClear();
+        setRotiModalVisible(true);
+      }}
+      style={{
+        height: 40,
+        fontSize: 13,
+        fontWeight: 'bold',
+        background: '#fa8c16',
+        borderColor: '#fa8c16',
+        color: 'white',
+      }}
+    >
+      Roti
+    </Button>
+    <Button
+      type="default"
+      icon={<DollarOutlined />}
+      onClick={async () => {
+        await handleAutoSaveAndClear();
+        setPaymentModalVisible(true);
+      }}
+      style={{
+        height: 40,
+        fontSize: 13,
+        fontWeight: 'bold',
+        background: '#faad14',
+        borderColor: '#faad14',
+        color: 'white',
+      }}
+    >
+      Quick payment
+    </Button>
+    
+    <Button
+      type="default"
+      icon={<DollarOutlined />}
+      onClick={async () => {
+        await handleAutoSaveAndClear();
+        setExpenseModalVisible(true);
+      }}
+      style={{
+        height: 40,
+        fontSize: 13,
+        fontWeight: 'bold',
+        background: '#722ed1',
+        borderColor: '#722ed1',
+        color: 'white',
+      }}
+    >
+      Payment
+    </Button>
 
-            {selectedOrderCustomer && (
-              <Tag 
-                color="warning"
-                closable
-                onClose={() => {
-                  setSelectedOrderCustomer(null);
-                  setCustomerType('walking');
-                  setCart([]);
-                  setDiscount('0');
-                }}
-                style={{
-                  fontSize: 14,
-                  padding: '6px 12px',
-                  margin: 0,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                }}
-              >
-                <ShoppingOutlined style={{ marginRight: 6 }} />
-                Order for: {selectedOrderCustomer.name}
-              </Tag>
-            )}
-          </div>
-
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            <Button
-              type="default"
-              icon={<AppstoreOutlined />}
-              onClick={async () => {
-                await handleAutoSaveAndClear();
-                setRotiModalVisible(true);
-              }}
-              style={{
-                height: 40,
-                fontSize: 13,
-                fontWeight: 'bold',
-                background: '#fa8c16',
-                borderColor: '#fa8c16',
-                color: 'white',
-              }}
-            >
-              Roti
-            </Button>
-            <Button
-              type="default"
-              icon={<DollarOutlined />}
-              onClick={async () => {
-                await handleAutoSaveAndClear();
-                setPaymentModalVisible(true);
-              }}
-              style={{
-                height: 40,
-                fontSize: 13,
-                fontWeight: 'bold',
-                background: '#faad14',
-                borderColor: '#faad14',
-                color: 'white',
-              }}
-            >
-              Quick payment
-            </Button>
-            
-            <Button
-              type="default"
-              icon={<DollarOutlined />}
-              onClick={async () => {
-                await handleAutoSaveAndClear();
-                setExpenseModalVisible(true);
-              }}
-              style={{
-                height: 40,
-                fontSize: 13,
-                fontWeight: 'bold',
-                background: '#722ed1',
-                borderColor: '#722ed1',
-                color: 'white',
-              }}
-            >
-              Payment
-            </Button>
-
-            <Button
-              type="default"
-              icon={<RollbackOutlined />}
-              onClick={async () => {
-                await handleAutoSaveAndClear();
-                handleReturnOrder();
-              }}
-              style={{
-                height: 40,
-                fontSize: 13,
-                fontWeight: 'bold',
-                background: '#ff4d4f',
-                borderColor: '#ff4d4f',
-                color: 'white',
-              }}
-            >
-              Return
-            </Button>
-            
-            <Button
-              type="primary"
-              icon={<CheckCircleOutlined />}
-              onClick={async () => {
-                await handleAutoSaveAndClear();
-                handleProceedOrder();
-              }}
-              style={{
-                height: 40,
-                fontSize: 13,
-                fontWeight: 'bold',
-                background: '#52c41a',
-                borderColor: '#52c41a',
-              }}
-            >
-              Proceed Order
-            </Button>
-          </div>
-        </div>
+    <Button
+      type="default"
+      icon={<RollbackOutlined />}
+      onClick={async () => {
+        await handleAutoSaveAndClear();
+        handleReturnOrder();
+      }}
+      style={{
+        height: 40,
+        fontSize: 13,
+        fontWeight: 'bold',
+        background: '#ff4d4f',
+        borderColor: '#ff4d4f',
+        color: 'white',
+      }}
+    >
+      Return
+    </Button>
+    
+    <Button
+      type="primary"
+      icon={<CheckCircleOutlined />}
+      onClick={async () => {
+        await handleAutoSaveAndClear();
+        handleProceedOrder();
+      }}
+      style={{
+        height: 40,
+        fontSize: 13,
+        fontWeight: 'bold',
+        background: '#52c41a',
+        borderColor: '#52c41a',
+      }}
+    >
+      Proceed Order
+    </Button>
+  </div>
+</div>
 
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
           <Row gutter={[10, 10]} align="top" style={{ height: '100%' }}>
@@ -1287,10 +1296,7 @@ const Sale = ({ selectedTable, onClearTable }) => {
                           type={selectedCategory === category.id ? 'primary' : 'default'}
                           block
                           size="large"
-                          onClick={async () => {
-                            await handleAutoSaveAndClear();
-                            setSelectedCategory(category.id);
-                          }}
+                          onClick={() => setSelectedCategory(category.id)}
                           style={{
                             height: 50,
                             fontSize: 12,
@@ -1486,6 +1492,7 @@ const Sale = ({ selectedTable, onClearTable }) => {
         visible={orderCustomerModalVisible}
         onClose={() => setOrderCustomerModalVisible(false)}
         onSelectCustomer={handleOrderCustomerSelect}
+        onSelectEmployee={handleEmployeeSelect}
       />
 
       <Modal
