@@ -22,17 +22,8 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
   const [amount, setAmount] = useState('');
   const [selectedHint, setSelectedHint] = useState('');
 
-  // Quick payment hints
-  const paymentHints = [
-    'BC',
-    'Electricity',
-    'Salary',
-    'Supplies',
-    'Maintenance',
-    
-  ];
+  const paymentHints = ['BC', 'Electricity', 'Salary', 'Supplies', 'Maintenance'];
 
-  // Handle calculator button click
   const handleCalculatorClick = (value) => {
     if (value === 'C') {
       setAmount('');
@@ -43,29 +34,30 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
     }
   };
 
-  // Handle amount input change
   const handleAmountChange = (e) => {
     const value = e.target.value;
-    // Only allow numbers
     if (/^\d*$/.test(value)) {
       setAmount(value);
     }
   };
 
-  // Handle hint selection
+  // ✅ FIX: paymentType change hone par amount aur hint clear karo
+  const handlePaymentTypeChange = (e) => {
+    setPaymentType(e.target.value);
+    setAmount('');
+    setSelectedHint('');
+  };
+
   const handleHintClick = (hint) => {
     setSelectedHint(hint);
   };
 
-  // Handle Save
   const handleSave = () => {
     const amountValue = parseFloat(amount) || 0;
-    
     if (amountValue <= 0) {
       message.warning('Please enter a valid amount!');
       return;
     }
-
     if (!selectedHint) {
       message.warning('Please select a payment category!');
       return;
@@ -78,22 +70,15 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
       timestamp: new Date().toISOString(),
     };
 
-    console.log('Payment Data:', paymentData);
-    
-    if (onSave) {
-      onSave(paymentData);
-    }
+    if (onSave) onSave(paymentData);
 
-    message.success(`Payment ${paymentType === 'in' ? 'In' : 'Out'}: Rs. ${amountValue} (${selectedHint}) saved successfully!`);
-    
-    // Reset form
+    message.success(`Payment ${paymentType === 'in' ? 'In' : 'Out'}: Rs. ${amountValue} (${selectedHint}) saved!`);
     setPaymentType('in');
     setAmount('');
     setSelectedHint('');
     onClose();
   };
 
-  // Handle Modal Close
   const handleClose = () => {
     setPaymentType('in');
     setAmount('');
@@ -112,18 +97,14 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
       maskClosable={true}
     >
       <Space direction="vertical" size={10} style={{ width: '100%' }}>
-        {/* Radio Buttons - In/Out */}
-        <Card 
-          bordered={false} 
+        <Card
+          bordered={false}
           bodyStyle={{ padding: 8 }}
-          style={{
-            background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-            borderRadius: 6,
-          }}
+          style={{ background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)', borderRadius: 6 }}
         >
           <Radio.Group
             value={paymentType}
-            onChange={(e) => setPaymentType(e.target.value)}
+            onChange={handlePaymentTypeChange}
             style={{ width: '100%' }}
           >
             <Row gutter={6}>
@@ -131,13 +112,9 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
                 <Radio.Button
                   value="in"
                   style={{
-                    width: '100%',
-                    height: 32,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 13,
-                    fontWeight: 'bold',
+                    width: '100%', height: 32,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, fontWeight: 'bold',
                     background: paymentType === 'in' ? '#52c41a' : undefined,
                     borderColor: paymentType === 'in' ? '#52c41a' : undefined,
                     color: paymentType === 'in' ? 'white' : undefined,
@@ -150,13 +127,9 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
                 <Radio.Button
                   value="out"
                   style={{
-                    width: '100%',
-                    height: 32,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 13,
-                    fontWeight: 'bold',
+                    width: '100%', height: 32,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, fontWeight: 'bold',
                     background: paymentType === 'out' ? '#ff4d4f' : undefined,
                     borderColor: paymentType === 'out' ? '#ff4d4f' : undefined,
                     color: paymentType === 'out' ? 'white' : undefined,
@@ -169,12 +142,8 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
           </Radio.Group>
         </Card>
 
-        {/* Amount Input Field */}
         <Space direction="vertical" size={6} style={{ width: '100%' }}>
-          <Card
-            bordered={false}
-            bodyStyle={{ padding: 0 }}
-          >
+          <Card bordered={false} bodyStyle={{ padding: 0 }}>
             <Input
               placeholder="Enter amount"
               value={amount}
@@ -183,11 +152,8 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
               style={{
                 background: paymentType === 'in' ? '#f6ffed' : '#fff2f0',
                 border: `2px solid ${paymentType === 'in' ? '#52c41a' : '#ff4d4f'}`,
-                padding: '6px 10px',
-                borderRadius: 6,
-                fontSize: 16,
-                fontWeight: 'bold',
-                fontFamily: 'monospace',
+                padding: '6px 10px', borderRadius: 6,
+                fontSize: 16, fontWeight: 'bold', fontFamily: 'monospace',
                 color: paymentType === 'in' ? '#52c41a' : '#ff4d4f',
                 minHeight: 36,
               }}
@@ -195,18 +161,14 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
             />
           </Card>
 
-          {/* Payment Category Hints - One Line */}
           <Flex wrap="wrap" gap={4} style={{ paddingLeft: 2 }}>
             {paymentHints.map((hint) => (
               <Tag
                 key={hint}
                 color={selectedHint === hint ? (paymentType === 'in' ? 'green' : 'red') : 'default'}
                 style={{
-                  cursor: 'pointer',
-                  fontSize: 9,
-                  padding: '1px 5px',
-                  margin: 0,
-                  borderRadius: 6,
+                  cursor: 'pointer', fontSize: 9, padding: '1px 5px',
+                  margin: 0, borderRadius: 6,
                   fontWeight: selectedHint === hint ? 'bold' : 'normal',
                 }}
                 onClick={() => handleHintClick(hint)}
@@ -217,14 +179,10 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
           </Flex>
         </Space>
 
-        {/* Calculator */}
         <Card
           bordered={false}
           bodyStyle={{ padding: 4 }}
-          style={{
-            background: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)',
-            borderRadius: 6,
-          }}
+          style={{ background: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)', borderRadius: 6 }}
         >
           <Row gutter={[3, 3]}>
             {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((btn) => (
@@ -234,9 +192,7 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
                   size="small"
                   onClick={() => handleCalculatorClick(btn)}
                   style={{
-                    height: 30,
-                    fontSize: 13,
-                    fontWeight: 'bold',
+                    height: 30, fontSize: 13, fontWeight: 'bold',
                     background: btn === 'C' ? '#ff4d4f' : btn === '⌫' ? '#faad14' : undefined,
                     borderColor: btn === 'C' ? '#ff4d4f' : btn === '⌫' ? '#faad14' : undefined,
                     color: btn === 'C' || btn === '⌫' ? 'white' : undefined,
@@ -249,20 +205,13 @@ const PaymentModal = ({ visible, onClose, onSave }) => {
           </Row>
         </Card>
 
-        {/* Save Button */}
         <Button
           type="primary"
           block
           size="middle"
           icon={<SaveOutlined />}
           onClick={handleSave}
-          style={{
-            height: 36,
-            fontSize: 13,
-            fontWeight: 'bold',
-            background: '#1890ff',
-            borderColor: '#1890ff',
-          }}
+          style={{ height: 36, fontSize: 13, fontWeight: 'bold', background: '#1890ff', borderColor: '#1890ff' }}
         >
           Save {selectedHint && `- ${selectedHint}`}
         </Button>

@@ -117,19 +117,12 @@ const Sale = ({ selectedTable, onClearTable }) => {
 
   const currentSelectedTable = selectedTable || internalSelectedTable;
   
-  // ✅ FIX: Calculate booked tables count using useMemo to ensure it updates properly
   const bookedTablesCount = useMemo(() => bookedTables.size, [bookedTables]);
 
-  // ✅ Auto-save and clear when clicking outside product area
+  // ✅ FIX 1: handleAutoSaveAndClear — TABLE KO NULL MAT KARO
+  // Sirf customer order save karo, table selection mat chheRo
   const handleAutoSaveAndClear = async () => {
-    if (currentSelectedTable && cart.length > 0) {
-      // Already saved via handleProductClick, just clear UI
-      setCart([]);
-      setDiscount('0');
-      setCalculatorDisplay('');
-      setInternalSelectedTable(null);
-    } else if (selectedOrderCustomer && cart.length > 0) {
-      // Save customer order and clear
+    if (selectedOrderCustomer && cart.length > 0) {
       try {
         await dbHelper.addToCustomerOrder(selectedOrderCustomer, cart);
         setCart([]);
@@ -139,90 +132,63 @@ const Sale = ({ selectedTable, onClearTable }) => {
         console.error('Error saving customer order:', error);
       }
     }
-  };
+     };
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
         console.log('🔄 Initializing app...');
         
-        // Initialize database
         await dbHelper.initDB();
         console.log('✅ Database initialized');
 
-        // Load or initialize tables
         let cachedTables = await dbHelper.getTables();
         console.log('📊 Tables loaded:', cachedTables.length);
         
         if (cachedTables.length === 0) {
-          console.log('💾 Saving initial tables...');
           await dbHelper.saveTables(initialTables);
           cachedTables = initialTables;
         }
         setTables(cachedTables);
 
-        // Load or initialize categories
         let cachedCategories = await dbHelper.getCategories();
-        console.log('📂 Categories loaded:', cachedCategories.length);
-        
         if (cachedCategories.length === 0) {
-          console.log('💾 Saving initial categories...');
           await dbHelper.saveCategories(initialCategories);
           cachedCategories = initialCategories;
         }
         setCategories(cachedCategories);
 
-        // Load or initialize products
         let cachedProducts = await dbHelper.getProducts();
-        console.log('🍔 Products loaded:', cachedProducts.length);
-        
         if (cachedProducts.length === 0) {
-          console.log('💾 Saving initial products...');
           await dbHelper.saveProducts(initialProducts);
           cachedProducts = initialProducts;
         }
         setProducts(cachedProducts);
 
-        // Load table orders
         const tableOrders = await dbHelper.getAllTableOrders();
-        console.log('📋 Table orders loaded:', tableOrders.length);
-        
         const ordersMap = new Map();
         tableOrders.forEach(order => {
           ordersMap.set(order.tableId, order);
         });
         setActiveTableOrders(ordersMap);
 
-        // Load booked tables
         const savedBookedTables = await dbHelper.getBookedTables();
         const bookedFromOrders = tableOrders.map(order => order.tableName);
         const allBookedTables = [...new Set([...savedBookedTables, ...bookedFromOrders])];
         
-        console.log('🔒 Booked tables:', allBookedTables.length);
         setBookedTables(new Set(allBookedTables));
         await dbHelper.saveBookedTables(allBookedTables);
         
-        // Update unsynced count
         await updateUnsyncedCount();
-
         console.log('✅ App initialization complete');
 
       } catch (error) {
         console.error('❌ Error initializing app:', error);
-        console.error('Error details:', {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        });
-        
         notification.error({
           message: 'Initialization Error',
           description: `Failed to load data: ${error.message}. Please refresh the page.`,
-          duration: 0, // Don't auto-close
+          duration: 0,
         });
-        
-        // Try to recover by using initial data
-        console.log('⚠️ Attempting recovery with initial data...');
         setTables(initialTables);
         setCategories(initialCategories);
         setProducts(initialProducts);
@@ -241,11 +207,13 @@ const Sale = ({ selectedTable, onClearTable }) => {
         console.error('❌ Error saving booked tables:', error);
       }
     };
-
     saveBookedTablesState();
   }, [bookedTables]);
 
-  const loadActiveTableOrders = async () => {
+  // ✅ FIX 2: loadActiveTableOrders — cleared table wapas NA aaye
+  // Sirf DB se jo orders hain unhi se booked set banao, manually cleared tables
+  // pehle se bookedTables se remove ho chuki hain
+  const loadActiveTableOrders = async (clearedTableName = null) => {
     try {
       const tableOrders = await dbHelper.getAllTableOrders();
       const ordersMap = new Map();
@@ -256,25 +224,34 @@ const Sale = ({ selectedTable, onClearTable }) => {
       
       setActiveTableOrders(ordersMap);
 
-      if (tableOrders.length > 0) {
-        setBookedTables(prevBooked => {
-          const bookedFromOrders = tableOrders.map(order => order.tableName);
-          const merged = new Set([...prevBooked, ...bookedFromOrders]);
-          return merged;
-        });
-      }
+      // ✅ CRITICAL: Sirf DB orders se sync karo
+      // Cleared table ko wapas add mat karo
+      const bookedFromOrders = new Set(tableOrders.map(order => order.tableName));
+      
+      setBookedTables(prevBooked => {
+        const newSet = new Set();
+        // Sirf woh tables rakhein jo DB mein orders hain
+        bookedFromOrders.forEach(name => newSet.add(name));
+        // Agar clearedTableName pass hua hai, use exclude karo
+        if (clearedTableName) {
+          newSet.delete(clearedTableName);
+        }
+        return newSet;
+      });
     } catch (error) {
       console.error('❌ Error loading table orders:', error);
     }
   };
-const handleEmployeeSelect = (employee) => {
-  setSelectedEmployee(employee);
-  setSelectedOrderCustomer(null);   // customer clear
-  setInternalSelectedTable(null);   // table clear
-  setCustomerType('walking');
-  setCart([]);
-  setDiscount('0');
-};
+
+  const handleEmployeeSelect = (employee) => {
+    setSelectedEmployee(employee);
+    setSelectedOrderCustomer(null);
+    setInternalSelectedTable(null);
+    setCustomerType('walking');
+    setCart([]);
+    setDiscount('0');
+  };
+
   const updateUnsyncedCount = async () => {
     try {
       const unsyncedOrders = await dbHelper.getUnsyncedOrders();
@@ -313,11 +290,9 @@ const handleEmployeeSelect = (employee) => {
   const loadTableOrder = async (tableId) => {
     try {
       const tableOrder = await dbHelper.getTableOrder(tableId);
-      
       if (tableOrder) {
         setCart(tableOrder.items || []);
         setDiscount(tableOrder.discount?.toString() || '0');
-        // ❌ REMOVED: message.info
       } else {
         setCart([]);
         setDiscount('0');
@@ -333,11 +308,9 @@ const handleEmployeeSelect = (employee) => {
     try {
       const customerOrders = await dbHelper.getCustomerOrders('pending');
       const customerOrder = customerOrders.find(order => order.customerId === customerId);
-      
       if (customerOrder) {
         setCart(customerOrder.items || []);
         setDiscount(customerOrder.discount?.toString() || '0');
-        // ❌ REMOVED: message.info
       } else {
         setCart([]);
         setDiscount('0');
@@ -382,12 +355,10 @@ const handleEmployeeSelect = (employee) => {
       } else {
         const newValue = calculatorDisplay + value;
         const quantity = parseInt(newValue) || 0;
-        
         if (quantity > 10) {
           message.warning('10 se zayada product select nahi ho sakta!');
           return;
         }
-        
         setCalculatorDisplay(calculatorDisplay + value);
       }
     }
@@ -395,7 +366,6 @@ const handleEmployeeSelect = (employee) => {
 
   const handleProductClick = async (product) => {
     const quantity = parseInt(calculatorDisplay) || 1;
-    
     const existingItem = cart.find((item) => item.id === product.id);
     let newCart;
     
@@ -419,35 +389,22 @@ const handleEmployeeSelect = (employee) => {
           [{ ...product, quantity }],
           selectedOrderCustomer
         );
-        
         if (cart.length === 0) {
-          setBookedTables(prev => {
-            const newSet = new Set([...prev, currentSelectedTable.name]);
-            return newSet;
-          });
+          setBookedTables(prev => new Set([...prev, currentSelectedTable.name]));
         }
-        
         await loadActiveTableOrders();
-        // ❌ REMOVED: message.success
       } catch (error) {
         console.error('❌ Error saving to table order:', error);
         message.error('Failed to save item');
       }
     } else if (selectedOrderCustomer) {
-      // ✅ Save to customer order (silently)
       try {
-        await dbHelper.addToCustomerOrder(
-          selectedOrderCustomer,
-          [{ ...product, quantity }]
-        );
-        // ✅ Refresh pending orders check
+        await dbHelper.addToCustomerOrder(selectedOrderCustomer, [{ ...product, quantity }]);
         await checkPendingCustomerOrders(selectedOrderCustomer.id);
       } catch (error) {
         console.error('❌ Error saving to customer order:', error);
         message.error('Failed to save item');
       }
-    } else {
-      // Walking customer - just add to cart (no save yet)
     }
     
     setCalculatorDisplay('');
@@ -456,7 +413,6 @@ const handleEmployeeSelect = (employee) => {
   const removeFromCart = async (id) => {
     const newCart = cart.filter((item) => item.id !== id);
     setCart(newCart);
-    
     if (currentSelectedTable) {
       try {
         await dbHelper.removeItemFromTable(currentSelectedTable.id, id);
@@ -482,10 +438,8 @@ const handleEmployeeSelect = (employee) => {
         }
       }
     };
-    
     const timeoutId = setTimeout(updateDiscount, 500);
     return () => clearTimeout(timeoutId);
-    
   }, [discount, currentSelectedTable?.id, discountFocused]);
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -502,7 +456,6 @@ const handleEmployeeSelect = (employee) => {
   };
 
   const handleProceedOrder = async () => {
-    // ✅ Always open modal - let user check if orders exist
     setProceedOrderModalVisible(true);
   };
 
@@ -523,11 +476,7 @@ const handleEmployeeSelect = (employee) => {
         const result = await dbHelper.saveFinalOrder(
           currentSelectedTable.id,
           paymentMethod,
-          {
-            customerType,
-            isStarred,
-            orderCustomer: selectedOrderCustomer,
-          }
+          { customerType, isStarred, orderCustomer: selectedOrderCustomer }
         );
 
         loadingMsg();
@@ -551,7 +500,6 @@ const handleEmployeeSelect = (employee) => {
         setCalculatorDisplay('');
         setIsStarred(false);
         handleClearTable();
-        
         await loadActiveTableOrders();
         await updateUnsyncedCount();
 
@@ -570,32 +518,20 @@ const handleEmployeeSelect = (employee) => {
           lastUpdated: new Date().toISOString(),
         };
 
-        if (!dbHelper.db) {
-          await dbHelper.initDB();
-        }
+        if (!dbHelper.db) await dbHelper.initDB();
 
         const transaction = dbHelper.db.transaction(['orders'], 'readwrite');
         const store = transaction.objectStore('orders');
         const addRequest = store.add({ ...orderData, synced: false });
 
         addRequest.onsuccess = async () => {
-          const localId = addRequest.result;
           const apiResult = await dbHelper.sendOrderToBackend(orderData);
-          
           loadingMsg();
 
           if (apiResult.success) {
-            notification.success({
-              message: '✅ Order Saved!',
-              description: 'Walking customer order saved.',
-              duration: 2,
-            });
+            notification.success({ message: '✅ Order Saved!', description: 'Walking customer order saved.', duration: 2 });
           } else {
-            notification.warning({
-              message: '⚠️ Saved Locally',
-              description: 'Will sync when connection restored.',
-              duration: 2,
-            });
+            notification.warning({ message: '⚠️ Saved Locally', description: 'Will sync when connection restored.', duration: 2 });
           }
 
           setCart([]);
@@ -610,25 +546,18 @@ const handleEmployeeSelect = (employee) => {
           throw new Error('Failed to save to IndexedDB');
         };
       }
-
     } catch (error) {
       loadingMsg();
       console.error('❌ Error saving order:', error);
-      notification.error({
-        message: 'Save Failed',
-        description: 'Could not save order. Please try again.',
-        duration: 3,
-      });
+      notification.error({ message: 'Save Failed', description: 'Could not save order. Please try again.', duration: 3 });
     }
   };
 
   const handleRetrySync = async () => {
     const loadingMsg = message.loading('Syncing...', 0);
-    
     try {
       const result = await dbHelper.retryUnsyncedOrders();
       loadingMsg();
-      
       if (result.syncedCount > 0) {
         message.success(`✅ ${result.syncedCount} orders synced!`, 2);
       } else if (result.totalUnsynced > 0) {
@@ -636,7 +565,6 @@ const handleEmployeeSelect = (employee) => {
       } else {
         message.info('No orders to sync', 1.5);
       }
-      
       await updateUnsyncedCount();
     } catch (error) {
       loadingMsg();
@@ -653,10 +581,8 @@ const handleEmployeeSelect = (employee) => {
       cancelText: 'Cancel',
       onOk: async () => {
         const loadingMsg = message.loading('Clearing database...', 0);
-        
         try {
           await dbHelper.clearDatabase();
-          
           setCart([]);
           setDiscount('0');
           setCalculatorDisplay('');
@@ -664,132 +590,130 @@ const handleEmployeeSelect = (employee) => {
           setActiveTableOrders(new Map());
           setUnsyncedCount(0);
           setInternalSelectedTable(null);
-          
           loadingMsg();
-          
-          notification.success({
-            message: '✅ Database Cleared',
-            description: 'All local data has been deleted successfully.',
-            duration: 3,
-          });
-          
-          setTimeout(() => {
-            window.location.reload();
-          }, 1500);
-          
+          notification.success({ message: '✅ Database Cleared', description: 'All local data has been deleted successfully.', duration: 3 });
+          setTimeout(() => window.location.reload(), 1500);
         } catch (error) {
           loadingMsg();
           console.error('❌ Error clearing database:', error);
-          notification.error({
-            message: 'Clear Failed',
-            description: 'Could not clear database. Please try again.',
-            duration: 3,
-          });
+          notification.error({ message: 'Clear Failed', description: 'Could not clear database. Please try again.', duration: 3 });
         }
       },
     });
   };
 
-  const handleTableCustomer = () => {    
-    handleAutoSaveAndClear();
+  const handleTableCustomer = () => {
     setTableBookingModalVisible(true);
   };
 
   const handleBookedTablesList = () => {
-    handleAutoSaveAndClear();
     setTableBookingModalVisible(true);
   };
 
+  // ✅ FIX 3: MAIN TRANSFER LOGIC — COMPLETELY REWRITTEN
   const handleTableSelect = async (table) => {
     setTableBookingModalVisible(false);
-      setSelectedEmployee(null);          // employee clear — YEH ADD KARO
-    // ✅ Clear customer selection when switching to table (silently)
+    setSelectedEmployee(null);
+
+    // Agar customer order tha, save karo
     if (selectedOrderCustomer && cart.length > 0) {
-      // Save current customer cart first (silently)
       try {
         await dbHelper.addToCustomerOrder(selectedOrderCustomer, cart);
       } catch (error) {
         console.error('Error saving customer order:', error);
       }
     }
-    
+
     setSelectedOrderCustomer(null);
     setCustomerType('table');
-    
-    if (currentSelectedTable && cart.length > 0 && currentSelectedTable.id !== table.id) {
-      // Transferring from one table to another
+
+    // ✅ Transfer logic: currentSelectedTable hai aur alag table select ki
+    if (currentSelectedTable && currentSelectedTable.id !== table.id) {
       try {
-        await dbHelper.clearTableOrder(currentSelectedTable.id);
-        
-        await dbHelper.addToTableOrder(
-          table.id,
-          table.name,
-          cart.map(item => ({ ...item })),
-          null
-        );
-        
-        if (parseFloat(discount) > 0) {
-          await dbHelper.updateTableDiscount(table.id, parseFloat(discount));
+        // ✅ STEP 1: Pehle DB se current table ka order lo
+        // (cart empty ho sakti hai jab Booked Tables se select kiya tha)
+        const existingOrder = await dbHelper.getTableOrder(currentSelectedTable.id);
+        const itemsToTransfer = (existingOrder?.items && existingOrder.items.length > 0)
+          ? existingOrder.items
+          : cart;
+        const discountToTransfer = existingOrder?.discount ?? (parseFloat(discount) || 0);
+
+        if (itemsToTransfer && itemsToTransfer.length > 0) {
+          // ✅ STEP 2: Purani table DB se clear karo
+          await dbHelper.clearTableOrder(currentSelectedTable.id);
+          const oldTableName = currentSelectedTable.name;
+
+          // ✅ STEP 3: Naye table pe items save karo
+          await dbHelper.addToTableOrder(
+            table.id,
+            table.name,
+            itemsToTransfer.map(item => ({ ...item })),
+            null
+          );
+
+          if (discountToTransfer > 0) {
+            await dbHelper.updateTableDiscount(table.id, discountToTransfer);
+          }
+
+          // ✅ STEP 4: bookedTables manually update karo
+          // loadActiveTableOrders se pehle — taake UI turant update ho
+          setBookedTables(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(oldTableName);   // VIP → unbooked
+            newSet.add(table.name);         // Garden → booked
+            return newSet;
+          });
+          setCart(itemsToTransfer);
+          setDiscount(discountToTransfer.toString());
+          setInternalSelectedTable(table);
+          await loadActiveTableOrders(oldTableName);
+          message.success(`${oldTableName} → ${table.name} transfer complete!`, 2);
+          return; // Early return — kaam khatam
         }
-        
-        setBookedTables(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(currentSelectedTable.name);
-          newSet.add(table.name);
-          return newSet;
-        });
-        
-        await loadActiveTableOrders();
-        // ❌ REMOVED: message.success (order transferred)
-        
       } catch (error) {
         console.error('❌ Error transferring order:', error);
-        message.error('Failed to transfer order');
+        message.error('Transfer failed, please try again');
+        return;
       }
     }
-    // ❌ REMOVED: else message.success (table selected)
-    
+
+    // ✅ Fresh table select (koi transfer nahi)
     setInternalSelectedTable(table);
+    await loadTableOrder(table.id);
   };
 
   const handleClearTable = async () => {
     if (currentSelectedTable) {
+      const tableName = currentSelectedTable.name;
       setBookedTables(prev => {
         const newSet = new Set(prev);
-        newSet.delete(currentSelectedTable.name);
-        
+        newSet.delete(tableName);
         const bookedArray = Array.from(newSet);
         dbHelper.saveBookedTables(bookedArray).catch(err => {
           console.error('Error saving booked tables:', err);
         });
-        
         return newSet;
       });
     }
-    
     setInternalSelectedTable(null);
-    
-    if (onClearTable) {
-      onClearTable();
-    }
+    if (onClearTable) onClearTable();
     setCustomerType('walking');
   };
 
   const handleOrderCustomer = async () => {
-    // ✅ Auto-save and clear before switching
     await handleAutoSaveAndClear();
     setCustomerType('order');
     setOrderCustomerModalVisible(true);
   };
 
   const handleOrderCustomerSelect = async (customer) => {
-  setSelectedEmployee(null);          // employee clear
-  setSelectedOrderCustomer(customer);
-  setInternalSelectedTable(null);
-  setCart([]);
-  setDiscount('0');
-  setCustomerType('order');
-};
+    setSelectedEmployee(null);
+    setSelectedOrderCustomer(customer);
+    setInternalSelectedTable(null);
+    setCart([]);
+    setDiscount('0');
+    setCustomerType('order');
+  };
 
   const desktopColumns = [
     {
@@ -798,13 +722,7 @@ const handleEmployeeSelect = (employee) => {
       key: 'name',
       width: '30%',
       render: (text, record) => (
-        <Text 
-          strong 
-          style={{ 
-            fontSize: 11,
-            display: 'block',
-          }}
-        >
+        <Text strong style={{ fontSize: 11, display: 'block' }}>
           {`${text} x ${record.price}`}
         </Text>
       ),
@@ -839,10 +757,7 @@ const handleEmployeeSelect = (employee) => {
   ];
 
   const CalculatorComponent = ({ isModal = false }) => (
-    <Card
-      bordered={false}
-      bodyStyle={{ padding: 8 }}
-    >
+    <Card bordered={false} bodyStyle={{ padding: 8 }}>
       <Flex
         align="center"
         justify="flex-end"
@@ -860,7 +775,6 @@ const handleEmployeeSelect = (employee) => {
       >
         {discountFocused ? `Disc: ${discount}` : (calculatorDisplay || '0')}
       </Flex>
-
       <Row gutter={[4, 4]}>
         {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((btn) => (
           <Col span={8} key={btn}>
@@ -901,7 +815,6 @@ const handleEmployeeSelect = (employee) => {
             Rs. {subtotal.toFixed(2)}
           </Text>
         </Flex>
-
         <Flex justify="flex-end">
           <Flex
             align="center"
@@ -921,20 +834,12 @@ const handleEmployeeSelect = (employee) => {
             Rs. {discount}
           </Flex>
         </Flex>
-
-        <Divider
-          style={{
-            borderColor: 'rgba(46,125,50,0.3)',
-            margin: '2px 0',
-          }}
-        />
-
+        <Divider style={{ borderColor: 'rgba(46,125,50,0.3)', margin: '2px 0' }} />
         <Flex justify="flex-end">
           <Text strong style={{ color: '#1b5e20', fontSize: 22 }}>
             Rs. {total.toFixed(2)}
           </Text>
         </Flex>
-
         <Flex justify="space-between" align="center">
           <Button
             size="small"
@@ -942,20 +847,15 @@ const handleEmployeeSelect = (employee) => {
             onClick={handleStarToggle}
             title={isStarred ? 'Unfavorite' : 'Mark Favorite'}
             style={{
-              height: 24,
-              width: 24,
-              padding: 0,
+              height: 24, width: 24, padding: 0,
               background: isStarred ? '#faad14' : 'white',
               borderColor: isStarred ? '#faad14' : '#d9d9d9',
               color: isStarred ? 'white' : '#000',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           />
-
-          <Radio.Group 
-            value={paymentMethod} 
+          <Radio.Group
+            value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value)}
             size="small"
             buttonStyle="solid"
@@ -964,7 +864,6 @@ const handleEmployeeSelect = (employee) => {
             <Radio value="online" style={{ fontSize: 11 }}>On</Radio>
           </Radio.Group>
         </Flex>
-
         <Row gutter={4}>
           <Col span={12}>
             <Button
@@ -974,12 +873,7 @@ const handleEmployeeSelect = (employee) => {
               icon={<PrinterOutlined />}
               onClick={handlePrint}
               disabled={cart.length === 0}
-              style={{
-                height: 30,
-                background: '#1890ff',
-                borderColor: '#1890ff',
-                color: 'white',
-              }}
+              style={{ height: 30, background: '#1890ff', borderColor: '#1890ff', color: 'white' }}
             >
               Print
             </Button>
@@ -992,11 +886,7 @@ const handleEmployeeSelect = (employee) => {
               icon={<SaveOutlined />}
               onClick={handleSaveOrder}
               disabled={cart.length === 0}
-              style={{
-                height: 30,
-                background: '#106314',
-                borderColor: '#106314',
-              }}
+              style={{ height: 30, background: '#106314', borderColor: '#106314' }}
             >
               Save
             </Button>
@@ -1008,202 +898,136 @@ const handleEmployeeSelect = (employee) => {
 
   return (
     <>
-      <div style={{
-        padding: 10, 
-        background: '#ffffff', 
-        height: '96vh',
-        display: 'flex', 
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}>
-        <div style={{ 
-  minHeight: 40,
-  minWidth: '100%',
-  marginBottom: 10, 
-  flexShrink: 0,
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-}}>
-  
-  {unsyncedCount > 0 && (
-    <Badge count={unsyncedCount} showZero={false}>
-      <Button
-        size="small"
-        icon={<DatabaseOutlined />}
-        onClick={handleRetrySync}
-        danger
-        style={{ fontSize: 11 }}
-      >
-        Retry Sync
-      </Button>
-    </Badge>
-  )}
+      <div style={{ padding: 10, background: '#ffffff', height: '96vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ minHeight: 40, minWidth: '100%', marginBottom: 10, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          
+          {unsyncedCount > 0 && (
+            <Badge count={unsyncedCount} showZero={false}>
+              <Button size="small" icon={<DatabaseOutlined />} onClick={handleRetrySync} danger style={{ fontSize: 11 }}>
+                Retry Sync
+              </Button>
+            </Badge>
+          )}
 
-  <Button
-    size="small"
-    icon={<ClearOutlined />}
-    onClick={handleClearDatabase}
-    danger
-    style={{ 
-      fontSize: 11,
-      background: '#ff4d4f',
-      borderColor: '#ff4d4f',
-      color: 'white',
-    }}
-  >
-    Clear DB
-  </Button>
-
-  
-  
-  {/* ✅ ONLY ONE TAG AT A TIME — last selected wins: Employee > Customer > Table */}
-  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-    {(() => {
-      if (selectedEmployee) {
-        return (
-          <Tag
-            color="blue"
-            closable
-            onClose={() => setSelectedEmployee(null)}
-            style={{ fontSize: 14, padding: '6px 12px', margin: 0, display: 'inline-flex', alignItems: 'center' }}
+          <Button
+            size="small"
+            icon={<ClearOutlined />}
+            onClick={handleClearDatabase}
+            danger
+            style={{ fontSize: 11, background: '#ff4d4f', borderColor: '#ff4d4f', color: 'white' }}
           >
-            <TeamOutlined style={{ marginRight: 6 }} />
-            Employee: {selectedEmployee.name}
-          </Tag>
-        );
-      }
-      if (selectedOrderCustomer) {
-        return (
-          <Tag
-            color="warning"
-            closable
-            onClose={() => {
-              setSelectedOrderCustomer(null);
-              setCustomerType('walking');
-              setCart([]);
-              setDiscount('0');
-            }}
-            style={{ fontSize: 14, padding: '6px 12px', margin: 0, display: 'inline-flex', alignItems: 'center' }}
-          >
-            <ShoppingOutlined style={{ marginRight: 6 }} />
-            Order for: {selectedOrderCustomer.name}
-          </Tag>
-        );
-      }
-      if (currentSelectedTable) {
-        return (
-          <Tag
-            color="success"
-            closable
-            onClose={handleClearTable}
-            style={{ fontSize: 14, padding: '6px 12px', margin: 0, display: 'inline-flex', alignItems: 'center' }}
-          >
-            <TableOutlined style={{ marginRight: 6 }} />
-            {currentSelectedTable.name} ({currentSelectedTable.capacity} seats)
-            {activeTableOrders.has(currentSelectedTable.id) && ' 📋'}
-          </Tag>
-        );
-      }
-      return null;
-    })()}
-  </div>
+            Clear DB
+          </Button>
 
-  <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-    <Button
-      type="default"
-      icon={<AppstoreOutlined />}
-      onClick={async () => {
-        await handleAutoSaveAndClear();
-        setRotiModalVisible(true);
-      }}
-      style={{
-        height: 40,
-        fontSize: 13,
-        fontWeight: 'bold',
-        background: '#fa8c16',
-        borderColor: '#fa8c16',
-        color: 'white',
-      }}
-    >
-      Roti
-    </Button>
-    <Button
-      type="default"
-      icon={<DollarOutlined />}
-      onClick={async () => {
-        await handleAutoSaveAndClear();
-        setPaymentModalVisible(true);
-      }}
-      style={{
-        height: 40,
-        fontSize: 13,
-        fontWeight: 'bold',
-        background: '#faad14',
-        borderColor: '#faad14',
-        color: 'white',
-      }}
-    >
-      Quick payment
-    </Button>
-    
-    <Button
-      type="default"
-      icon={<DollarOutlined />}
-      onClick={async () => {
-        await handleAutoSaveAndClear();
-        setExpenseModalVisible(true);
-      }}
-      style={{
-        height: 40,
-        fontSize: 13,
-        fontWeight: 'bold',
-        background: '#722ed1',
-        borderColor: '#722ed1',
-        color: 'white',
-      }}
-    >
-      Payment
-    </Button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {(() => {
+              if (selectedEmployee) {
+                return (
+                  <Tag
+                    color="blue"
+                    closable
+                    onClose={() => setSelectedEmployee(null)}
+                    style={{ fontSize: 14, padding: '6px 12px', margin: 0, display: 'inline-flex', alignItems: 'center' }}
+                  >
+                    <TeamOutlined style={{ marginRight: 6 }} />
+                    Employee: {selectedEmployee.name}
+                  </Tag>
+                );
+              }
+              if (selectedOrderCustomer) {
+                return (
+                  <Tag
+                    color="warning"
+                    closable
+                    onClose={() => {
+                      setSelectedOrderCustomer(null);
+                      setCustomerType('walking');
+                      setCart([]);
+                      setDiscount('0');
+                    }}
+                    style={{ fontSize: 14, padding: '6px 12px', margin: 0, display: 'inline-flex', alignItems: 'center' }}
+                  >
+                    <ShoppingOutlined style={{ marginRight: 6 }} />
+                    Order for: {selectedOrderCustomer.name}
+                  </Tag>
+                );
+              }
+              if (currentSelectedTable) {
+                return (
+                  <Tag
+                    color="success"
+                    closable
+                    onClose={handleClearTable}
+                    style={{ fontSize: 14, padding: '6px 12px', margin: 0, display: 'inline-flex', alignItems: 'center' }}
+                  >
+                    <TableOutlined style={{ marginRight: 6 }} />
+                    {currentSelectedTable.name} ({currentSelectedTable.capacity} seats)
+                    {activeTableOrders.has(currentSelectedTable.id) && ' 📋'}
+                  </Tag>
+                );
+              }
+              return null;
+            })()}
+          </div>
 
-    <Button
-      type="default"
-      icon={<RollbackOutlined />}
-      onClick={async () => {
-        await handleAutoSaveAndClear();
-        handleReturnOrder();
-      }}
-      style={{
-        height: 40,
-        fontSize: 13,
-        fontWeight: 'bold',
-        background: '#ff4d4f',
-        borderColor: '#ff4d4f',
-        color: 'white',
-      }}
-    >
-      Return
-    </Button>
-    
-    <Button
-      type="primary"
-      icon={<CheckCircleOutlined />}
-      onClick={async () => {
-        await handleAutoSaveAndClear();
-        handleProceedOrder();
-      }}
-      style={{
-        height: 40,
-        fontSize: 13,
-        fontWeight: 'bold',
-        background: '#52c41a',
-        borderColor: '#52c41a',
-      }}
-    >
-      Proceed Order
-    </Button>
-  </div>
-</div>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <Button
+              type="default"
+              icon={<AppstoreOutlined />}
+              onClick={async () => {
+                await handleAutoSaveAndClear();
+                setRotiModalVisible(true);
+              }}
+              style={{ height: 40, fontSize: 13, fontWeight: 'bold', background: '#fa8c16', borderColor: '#fa8c16', color: 'white' }}
+            >
+              Roti
+            </Button>
+            <Button
+              type="default"
+              icon={<DollarOutlined />}
+              onClick={async () => {
+                await handleAutoSaveAndClear();
+                setPaymentModalVisible(true);
+              }}
+              style={{ height: 40, fontSize: 13, fontWeight: 'bold', background: '#faad14', borderColor: '#faad14', color: 'white' }}
+            >
+              Quick payment
+            </Button>
+            <Button
+              type="default"
+              icon={<DollarOutlined />}
+              onClick={async () => {
+                await handleAutoSaveAndClear();
+                setExpenseModalVisible(true);
+              }}
+              style={{ height: 40, fontSize: 13, fontWeight: 'bold', background: '#722ed1', borderColor: '#722ed1', color: 'white' }}
+            >
+              Payment
+            </Button>
+            <Button
+              type="default"
+              icon={<RollbackOutlined />}
+              onClick={async () => {
+                await handleAutoSaveAndClear();
+                handleReturnOrder();
+              }}
+              style={{ height: 40, fontSize: 13, fontWeight: 'bold', background: '#ff4d4f', borderColor: '#ff4d4f', color: 'white' }}
+            >
+              Return
+            </Button>
+            <Button
+              type="primary"
+              icon={<CheckCircleOutlined />}
+              onClick={async () => {
+                await handleAutoSaveAndClear();
+                handleProceedOrder();
+              }}
+              style={{ height: 40, fontSize: 13, fontWeight: 'bold', background: '#52c41a', borderColor: '#52c41a' }}
+            >
+              Proceed Order
+            </Button>
+          </div>
+        </div>
 
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
           <Row gutter={[10, 10]} align="top" style={{ height: '100%' }}>
@@ -1212,79 +1036,45 @@ const handleEmployeeSelect = (employee) => {
                 <Card
                   title={null}
                   bordered={false}
-                  style={{ 
-                    height: '55vh',
-                    overflow: 'hidden',
-                  }}
-                  bodyStyle={{
-                    height: '100%',
-                    padding: 8,
-                    overflow: 'hidden',
-                  }}
+                  style={{ height: '55vh', overflow: 'hidden' }}
+                  bodyStyle={{ height: '100%', padding: 8, overflow: 'hidden' }}
                 >
-                  <div style={{ 
-                    height: '100%', 
-                    overflowY: 'auto',
-                    overflowX: 'hidden',
-                  }}>
+                  <div style={{ height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
                     <Row gutter={[6, 6]}>
-                    {filteredProducts.map((product) => (
-                      <Col
-                        xs={12}
-                        sm={8}
-                        md={6}
-                        lg={24 / 5}
-                        xl={24 / 5}
-                        key={product.id}
-                      >
-                        <Card
-                          hoverable
-                          onClick={() => handleProductClick(product)}
-                          style={{
-                            background: `linear-gradient(135deg, ${getProductColor(product)}15, ${getProductColor(product)}30)`,
-                            borderLeft: `4px solid ${getProductColor(product)}`,
-                            height: 80,
-                          }}
-                          bodyStyle={{
-                            padding: 8,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'space-between',
-                            height: '100%',
-                          }}
-                        >
-                          <Text
-                            strong
+                      {filteredProducts.map((product) => (
+                        <Col xs={12} sm={8} md={6} lg={24 / 5} xl={24 / 5} key={product.id}>
+                          <Card
+                            hoverable
+                            onClick={() => handleProductClick(product)}
                             style={{
-                              fontSize: 11,
-                              textAlign: 'center',
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                              lineHeight: '1.3',
-                              marginBottom: 4,
+                              background: `linear-gradient(135deg, ${getProductColor(product)}15, ${getProductColor(product)}30)`,
+                              borderLeft: `4px solid ${getProductColor(product)}`,
+                              height: 80,
                             }}
-                            title={product.name}
+                            bodyStyle={{ padding: 8, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}
                           >
-                            {product.name}
-                          </Text>
-
-                          <Tag 
-                            color={getProductColor(product)} 
-                            style={{ 
-                              fontSize: 11, 
-                              padding: '2px 6px', 
-                              alignSelf: 'center',
-                              margin: 0 
-                            }}
-                          >
-                            Rs. {product.price}
-                          </Tag>
-                        </Card>
-                      </Col>
-                    ))}
-                  </Row>
+                            <Text
+                              strong
+                              style={{
+                                fontSize: 11, textAlign: 'center',
+                                display: '-webkit-box', WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                                lineHeight: '1.3', marginBottom: 4,
+                              }}
+                              title={product.name}
+                            >
+                              {product.name}
+                            </Text>
+                            <Tag
+                              color={getProductColor(product)}
+                              style={{ fontSize: 11, padding: '2px 6px', alignSelf: 'center', margin: 0 }}
+                            >
+                              Rs. {product.price}
+                            </Tag>
+                          </Card>
+                        </Col>
+                      ))}
+                    </Row>
                   </div>
                 </Card>
 
@@ -1298,11 +1088,9 @@ const handleEmployeeSelect = (employee) => {
                           size="large"
                           onClick={() => setSelectedCategory(category.id)}
                           style={{
-                            height: 50,
-                            fontSize: 12,
-                            fontWeight: 'bold',
+                            height: 50, fontSize: 12, fontWeight: 'bold',
                             backgroundColor: selectedCategory === category.id ? 'white' : category.color,
-                            borderColor: selectedCategory === category.id ? category.color : category.color,
+                            borderColor: category.color,
                             color: selectedCategory === category.id ? category.color : 'white',
                           }}
                         >
@@ -1320,16 +1108,9 @@ const handleEmployeeSelect = (employee) => {
                       block
                       size="large"
                       icon={<UserOutlined />}
-                      style={{ 
-                        height: 42, 
-                        fontSize: 12, 
-                        fontWeight: 600,
-                        whiteSpace: "nowrap"
-                      }}
+                      style={{ height: 42, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}
                       onClick={async () => {
-                        // ✅ Auto-save and clear before switching
                         await handleAutoSaveAndClear();
-                        
                         setCustomerType('walking');
                         setSelectedOrderCustomer(null);
                         setInternalSelectedTable(null);
@@ -1348,12 +1129,7 @@ const handleEmployeeSelect = (employee) => {
                       block
                       size="large"
                       icon={<ShoppingOutlined />}
-                      style={{ 
-                        height: 42, 
-                        fontSize: 12, 
-                        fontWeight: 600,
-                        whiteSpace: "nowrap"
-                      }}
+                      style={{ height: 42, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}
                       onClick={async () => {
                         await handleAutoSaveAndClear();
                         handleOrderCustomer();
@@ -1369,21 +1145,12 @@ const handleEmployeeSelect = (employee) => {
                       block
                       icon={<TableOutlined />}
                       style={{
-                        height: 42,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        background:
-                          customerType === 'table' || currentSelectedTable
-                            ? '#52c41a'
-                            : undefined,
-                        borderColor:
-                          customerType === 'table' || currentSelectedTable
-                            ? '#52c41a'
-                            : undefined,
-                        whiteSpace: "nowrap"
+                        height: 42, fontSize: 12, fontWeight: 600,
+                        background: customerType === 'table' || currentSelectedTable ? '#52c41a' : undefined,
+                        borderColor: customerType === 'table' || currentSelectedTable ? '#52c41a' : undefined,
+                        whiteSpace: 'nowrap',
                       }}
-                      onClick={async () => {
-                        await handleAutoSaveAndClear();
+                      onClick={() => {
                         handleTableCustomer();
                         setIsBooked(false);
                       }}
@@ -1393,20 +1160,13 @@ const handleEmployeeSelect = (employee) => {
                   </Col>
 
                   <Col flex="1">
-                    {/* ✅ FIX: Use the memoized count value */}
                     <Badge count={bookedTablesCount} showZero={false}>
                       <Button
                         block
                         icon={<UnorderedListOutlined />}
                         disabled={bookedTablesCount === 0}
-                        style={{
-                          height: 42,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          whiteSpace: "nowrap"
-                        }}
-                        onClick={async () => {
-                          await handleAutoSaveAndClear();
+                        style={{ height: 42, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}
+                        onClick={() => {
                           handleBookedTablesList();
                           setIsBooked(true);
                         }}
@@ -1422,16 +1182,14 @@ const handleEmployeeSelect = (employee) => {
                       icon={<TableOutlined />}
                       disabled={!currentSelectedTable}
                       style={{
-                        height: 42,
-                        fontSize: 12,
-                        fontWeight: 600,
+                        height: 42, fontSize: 12, fontWeight: 600,
                         background: currentSelectedTable ? '#1890ff' : undefined,
                         borderColor: currentSelectedTable ? '#1890ff' : undefined,
                         color: currentSelectedTable ? '#fff' : undefined,
-                        whiteSpace: "nowrap"
+                        whiteSpace: 'nowrap',
                       }}
-                      onClick={async () => {
-                        await handleAutoSaveAndClear();
+                      onClick={() => {
+                        // ✅ FIX: handleAutoSaveAndClear mat bulao — table clear ho jati thi
                         setTableBookingModalVisible(true);
                         setIsBooked(false);
                       }}
@@ -1444,22 +1202,11 @@ const handleEmployeeSelect = (employee) => {
             </Col>
 
             <Col xs={0} lg={8} style={{ height: '100%' }}>
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-                height: '100%'
-              }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, height: '100%' }}>
                 <Card
                   bordered
-                  style={{
-                    height: '55vh',
-                  }}
-                  bodyStyle={{
-                    padding: 0,
-                    height: '100%',
-                    overflow: 'hidden',
-                  }}
+                  style={{ height: '55vh' }}
+                  bodyStyle={{ padding: 0, height: '100%', overflow: 'hidden' }}
                 >
                   <div style={{ height: '100%' }}>
                     <Table
@@ -1473,7 +1220,6 @@ const handleEmployeeSelect = (employee) => {
                     />
                   </div>
                 </Card>
-
                 <Row gutter={10}>
                   <Col span={13}>
                     <CalculatorComponent />
@@ -1502,11 +1248,7 @@ const handleEmployeeSelect = (employee) => {
         footer={null}
         width={1000}
         style={{ top: 20 }}
-        bodyStyle={{ 
-          padding: 0,
-          height: '50vh', 
-          overflow: 'hidden'
-        }}
+        bodyStyle={{ padding: 0, height: '50vh', overflow: 'hidden' }}
         maskClosable={true}
       >
         <TableBooking
@@ -1526,7 +1268,6 @@ const handleEmployeeSelect = (employee) => {
           setProceedOrderModalVisible(false);
         }}
         onOrderCompleted={async () => {
-          // Refresh UI after completing orders
           await loadActiveTableOrders();
         }}
       />
@@ -1539,9 +1280,7 @@ const handleEmployeeSelect = (employee) => {
       <PaymentModal
         visible={paymentModalVisible}
         onClose={() => setPaymentModalVisible(false)}
-        onSave={(paymentData) => {
-          console.log('Payment saved:', paymentData);
-        }}
+        onSave={(paymentData) => { console.log('Payment saved:', paymentData); }}
       />
 
       <ExpenseModal
